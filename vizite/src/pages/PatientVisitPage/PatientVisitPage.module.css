@@ -1,0 +1,127 @@
+/* Glavni container */
+.wrap {
+  max-width: 480px; /* fokus na telefon */
+  margin: 0 auto;
+  padding: 12px;
+}
+
+/* Jedan okvir: ime + podaci + datum */
+.headerCard {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid var(--border, #e5e7eb);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  margin-bottom: 14px;
+  min-width: 0;
+}
+
+/* lijeva kolona – PatientHeader */
+.patientCol {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* desna kolona – kompaktan blok za datum */
+.dateCol {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* mala labela iznad inputa */
+.dateLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted, #6b7280);
+}
+
+/* red: input + "osvježavam…" */
+.dateRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* sam date input – kompaktan, ali dovoljno velik za tap */
+.date {
+  height: 36px;
+  padding: 0 10px;
+  min-width: 130px;
+  border-radius: 999px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: var(--panel, #f9fafb);
+  color: var(--fg, #111827);
+  font-size: 14px;
+}
+
+/* sivi tekst "osvježavam…" */
+.dim {
+  color: var(--muted, #6b7280);
+  font-size: 11px;
+}
+
+/* Naslov sekcije */
+.h3 {
+  margin: 6px 0 8px;
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+/* skeleton / placeholder */
+.skel {
+  border: 1px dashed var(--border, #e5e7eb);
+  padding: 10px;
+  border-radius: 10px;
+  color: var(--muted, #6b7280);
+  font-size: 14px;
+}
+
+/* error kartice */
+.err {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #7f1d1d;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+/* Ultra mali ekrani – dozvoli malo “sabijanje”, ali i dalje jedan red */
+@media (max-width: 360px) {
+  .wrap {
+    padding: 10px;
+  }
+
+  .headerCard {
+    gap: 8px;
+    padding: 10px 10px;
+  }
+
+  .date {
+    min-width: 115px;
+    font-size: 13px;
+  }
+
+  .h3 {
+    font-size: 16px;
+  }
+}
+
+/* Širi ekrani – malo rastereti okvir */
+@media (min-width: 640px) {
+  .wrap {
+    max-width: 720px;
+  }
+
+  .headerCard {
+    padding: 14px 16px;
+  }
+}

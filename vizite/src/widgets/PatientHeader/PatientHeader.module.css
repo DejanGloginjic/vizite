@@ -1,0 +1,93 @@
+/* kompaktan card sa tankom akcent-linijom lijevo (kada postoji upozorenje) */
+.card {
+  position: relative;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent, transparent);
+}
+
+.top {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* ime + datum/godine u istom redu */
+.nameLine {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap; /* ako je tijesno, lijepo prelomi */
+}
+.name {
+  margin: 0;
+  font-size: 16.5px;
+  line-height: 1.15;
+  font-weight: 800;
+  color: var(--fg, #0f172a);
+  letter-spacing: 0.1px;
+  min-width: 0;
+}
+.inlineDob {
+  color: var(--muted, #64748b);
+  font-weight: 600;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.age {
+  font-weight: 500;
+}
+
+/* diskretan warn tag desno */
+.warnTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* JMBG ispod */
+.jmbgLine {
+  margin-top: 4px;
+  color: var(--muted, #64748b);
+  font-size: 12.5px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* telefon */
+@media (max-width: 640px) {
+  .card {
+    padding: 8px;
+  }
+  .name {
+    font-size: 16px;
+  }
+  .inlineDob {
+    font-size: 12px;
+  }
+  .jmbgLine {
+    font-size: 12px;
+  }
+}

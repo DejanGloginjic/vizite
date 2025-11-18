@@ -1,0 +1,100 @@
+.wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* Header: mobile-first
+   - telefon: naslov gore, filteri ispod (u koloni)
+   - veći ekran: naslov lijevo, filteri desno u jednom redu */
+.topbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+  min-width: 0;
+}
+
+/* Naslov – isti tvoj stil, malo responsivan */
+.h2 {
+  margin: 0;
+  font-size: clamp(16px, 2.1vw, 20px);
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  color: var(--fg, #0f172a);
+  white-space: nowrap;
+}
+
+/* Kontejner za input + select */
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+/* AntD Input.Search i Select – full width na telefonu */
+.patientSearch,
+.roomSelect {
+  width: 100%;
+}
+
+/* mali status / meta-info (ako je koristiš) */
+.refresh,
+.metaInfo {
+  color: var(--muted, #6b7280);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* greška ostaje tvoja */
+.error {
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
+  border-radius: 10px;
+}
+
+/* TELEFON – još malo kompaktnije */
+@media (max-width: 560px) {
+  .wrap {
+    padding: 12px;
+  }
+
+  .topbar {
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .h2 {
+    font-size: 16px;
+    font-weight: 800;
+  }
+}
+
+/* TABLET/DESKTOP – naslov lijevo, filteri desno u jednom redu */
+@media (min-width: 561px) {
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .filters {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .patientSearch {
+    max-width: 220px;
+  }
+
+  .roomSelect {
+    min-width: 190px;
+    max-width: 240px;
+  }
+}

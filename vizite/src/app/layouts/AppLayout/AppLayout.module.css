@@ -1,0 +1,135 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+  background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.92),
+      rgba(255, 255, 255, 0.88)
+    ),
+    var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* brand | user */
+.inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px var(--container-pad);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Brand */
+.brandWrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.brandLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+.logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.brandText {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.appRoot {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  font-size: clamp(14px, 1.6vw, 16px);
+  color: #1e293b;
+}
+.dot {
+  color: #9ca3af;
+  font-weight: 700;
+}
+.appName {
+  font-weight: 900;
+  font-size: clamp(18px, 2.2vw, 22px);
+  color: var(--fg);
+}
+
+/* User area */
+.userArea {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* kartica s imenom – minimalistički */
+.userCard {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+.userIcon {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+.userName {
+  font-weight: 700;
+  color: var(--fg);
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Logout ikonica (ghost button) */
+.iconBtn {
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #334155;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.iconBtn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+.icon {
+  display: block;
+}
+
+/* Phone tweaks */
+@media (max-width: 480px) {
+  .inner {
+    padding: 8px var(--container-pad);
+  }
+  .userCard {
+    padding: 6px 8px;
+  }
+  .userName {
+    max-width: 150px;
+  }
+  .iconBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+}

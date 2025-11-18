@@ -1,0 +1,213 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+  background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.92),
+      rgba(255, 255, 255, 0.88)
+    ),
+    var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 8px var(--container-pad);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 16px;
+  align-items: center;
+}
+
+/* Brand */
+.brandWrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.brandLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.logo {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+.brandText {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+.appRoot {
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  font-size: 14px;
+  color: #1e293b;
+}
+.dot {
+  color: #9ca3af;
+  font-weight: 700;
+}
+.appName {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--fg);
+}
+
+/* User */
+.userArea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.userCard {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+.userIcon {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+.userName {
+  font-weight: 600;
+  color: var(--fg);
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.iconBtn {
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #334155;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.iconBtn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+.icon {
+  display: block;
+}
+
+/* ===== Modal (centar ekrana, mobile-friendly) ===== */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000; /* iznad headera */
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+.modal {
+  width: min(480px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+  padding: 14px;
+}
+.modalHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.modalIcon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.modalTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--fg);
+}
+.modalText {
+  margin: 6px 2px 12px;
+  color: var(--muted);
+}
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--fg);
+}
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+.btnCancel:hover {
+  background: #f8fafc;
+}
+.btnLogout {
+  background: #ef4444;
+  border-color: #dc2626;
+  color: #fff;
+}
+.btnLogout:hover {
+  filter: brightness(0.98);
+}
+
+@media (max-width: 560px) {
+  .appRoot,
+  .dot {
+    display: none;
+  }
+  .logo {
+    width: 24px;
+    height: 24px;
+  }
+  .userName {
+    max-width: 140px;
+  }
+  .iconBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+  .modalOverlay {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .userName {
+    max-width: 110px;
+  }
+}

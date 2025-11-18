@@ -1,0 +1,187 @@
+.virtualScroll {
+  height: calc(100vh - 180px);
+  min-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  background: var(--card, #ffffff);
+}
+
+/* mali i ujednačen gap unutar liste */
+.virtualRow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  will-change: transform;
+  padding: 4px 6px; /* minimalno, sa svih strana isto */
+  box-sizing: border-box;
+}
+
+/* Klikabilan red; flag je absolute, pa nema kolone za njega */
+.itemLink {
+  --row-h: 52px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px 1fr auto 26px; /* avatar | ime | meta | strelica */
+  align-items: center;
+  min-height: var(--row-h);
+  padding: 6px 8px 6px 12px; /* simetričan, ali bez “lufta” za flag */
+  gap: 10px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease,
+    transform 0.06s ease;
+  overflow: hidden; /* da se flag lijepo “utopi” u radius ivicu */
+}
+.itemLink:hover {
+  border-color: #d2dae4;
+  background: #fbfdff;
+}
+.itemLink:active {
+  transform: translateY(1px);
+}
+.itemLink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring, rgba(37, 99, 235, 0.35));
+  border-color: #bcd1ff;
+}
+
+/* status traka — FLUSH uz lijevu ivicu (prelazi i preko bordera) */
+.flag {
+  position: absolute;
+  left: -1px; /* poklopi border */
+  top: -1px; /* poklopi border + radius */
+  bottom: -1px;
+  width: 6px; /* mrvicu šira da izgleda odlučno */
+  border-radius: 10px 0 0 10px; /* prati radius item-a */
+  pointer-events: none;
+}
+
+/* Boje stanja */
+.flagOverdue {
+  background: #ef4444;
+} /* crvena */
+.flagOpen {
+  background: #f59e0b;
+} /* narandžasta */
+.flagDone {
+  background: #22c55e;
+} /* zelena */
+.flagNone {
+  background: #cbd5e1;
+} /* siva */
+
+/* avatar (slika ili inicijali) */
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  background: #f1f5f9;
+  display: grid;
+  place-items: center;
+  color: #475569;
+  font-weight: 800;
+  font-size: 14px;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ime */
+.name {
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 1.1;
+  color: var(--fg, #0f172a);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* desna meta (poravnata desno, sa tačkama) */
+.metaRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted, #6b7280);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.metaRight span + span::before {
+  content: "·";
+  margin: 0 8px 0 0;
+  color: var(--muted, #6b7280);
+  opacity: 0.6;
+}
+
+/* strelica — centrirana */
+.chev {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: #9aa3b2;
+  font-size: 18px;
+  line-height: 1;
+}
+.itemLink:hover .chev {
+  color: #1d4ed8;
+}
+
+/* Empty + skeleton */
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted, #6b7280);
+}
+.skeleton {
+  padding: 8px;
+}
+.skelRow {
+  height: 60px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #f2f4f7 25%, #eaeef5 37%, #f2f4f7 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s infinite;
+  margin: 6px;
+}
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* telefon */
+@media (max-width: 640px) {
+  .virtualScroll {
+    height: calc(100vh - 210px);
+  }
+  .itemLink {
+    --row-h: 50px;
+    grid-template-columns: 36px 1fr auto 24px;
+  }
+  .avatar {
+    width: 36px;
+    height: 36px;
+  }
+  .name {
+    font-size: 15.5px;
+  }
+  .metaRight {
+    font-size: 12.5px;
+  }
+}

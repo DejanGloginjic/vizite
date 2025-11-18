@@ -1,0 +1,87 @@
+/* ——— Narrow (telefon/tablet) ——— */
+.selectWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.selectLabel {
+  color: var(--muted);
+  font-size: 14px;
+}
+.select {
+  height: var(--hit);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 0 10px;
+  border-radius: 12px;
+}
+
+/* ——— Desktop chipovi ——— */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chipsRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scroller {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  padding: 6px 2px 10px;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 24px,
+    black calc(100% - 24px),
+    transparent 100%
+  );
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e6e8eb;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease,
+    transform 0.06s ease;
+}
+.chip:hover {
+  transform: translateY(-1px);
+}
+.active {
+  background: #eef4ff;
+  border-color: #a9c6ff;
+}
+.chipLabel {
+  display: inline-block;
+}
+
+.countBubble {
+  display: inline-grid;
+  place-items: center;
+  height: 20px;
+  min-width: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: #101828;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}

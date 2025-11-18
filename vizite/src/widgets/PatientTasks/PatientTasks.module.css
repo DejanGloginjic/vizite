@@ -1,0 +1,250 @@
+.form {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 84px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.left {
+  min-width: 0;
+}
+
+/* Naslov + vrijeme */
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.title {
+  font-weight: 800;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.timeWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.timeIcon {
+  width: 16px;
+  height: 16px;
+}
+.time {
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Detalji – bez čipova */
+.detailsRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.detail {
+  white-space: nowrap;
+}
+.detailsRow .detail + .detail::before {
+  content: "•";
+  margin: 0 6px 0 2px;
+  opacity: 0.55;
+}
+.em {
+  color: var(--fg);
+  font-weight: 600;
+}
+.noteOne {
+  max-width: 42ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Desno */
+.right {
+  margin-left: 10px;
+  display: flex;
+  align-items: center;
+}
+
+/* ✅ Urađeno – samo zelena kvačica, bez okvira */
+.doneCheck {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: #16a34a; /* zelena */
+}
+.doneCheck svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Checkbox */
+.prettyCheck {
+  --s: 24px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.checkboxInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+}
+.checkboxControl {
+  width: var(--s);
+  height: var(--s);
+  border-radius: 8px;
+  background: #fff;
+  border: 2px solid var(--border);
+  display: grid;
+  place-items: center;
+  transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+.tick {
+  width: 60%;
+  height: 60%;
+  pointer-events: none;
+}
+.tick path {
+  stroke: #fff;
+  stroke-width: 2.4;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.checkboxInput:checked + .checkboxControl {
+  background: #2563eb;
+  border-color: #1d4ed8;
+}
+
+/* Napomena */
+.noteWrap {
+  display: grid;
+  gap: 6px;
+}
+.noteLabel {
+  color: var(--muted);
+  font-size: 14px;
+}
+.note {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 12px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+.note:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+  border-color: #93c5fd;
+}
+
+/* Sticky bar */
+.stickyBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  padding-top: 8px;
+  background: linear-gradient(
+    to top,
+    rgba(245, 247, 251, 0.92),
+    rgba(245, 247, 251, 0.45) 40%,
+    transparent
+  );
+  backdrop-filter: blur(6px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+}
+.stickyInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 8px;
+}
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.selText {
+  font-weight: 700;
+  font-size: 12px;
+  color: #075985;
+}
+.dim {
+  color: var(--muted);
+  font-size: 13px;
+}
+.saveBtnBig {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--hit);
+  padding: 0 18px;
+  border-radius: 12px;
+  font-weight: 800;
+  background: var(--acc);
+  color: #fff;
+  border: 1px solid rgba(37, 99, 235, 0.9);
+}
+.saveDisabled {
+  opacity: 0.55;
+}
+
+@media (max-width: 640px) {
+  .item {
+    padding: 10px 12px;
+  }
+  .time {
+    font-size: 12px;
+  }
+  .detailsRow {
+    font-size: 12.5px;
+  }
+  .doneCheck {
+    width: 26px;
+    height: 26px;
+  }
+  .doneCheck svg {
+    width: 20px;
+    height: 20px;
+  }
+}
