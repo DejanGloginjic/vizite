@@ -1,36 +1,21 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import styles from "./Header.module.css";
-import logo from "../../../assets/logo.svg";
-import { useSession } from "../../../app/providers/SessionContext";
-import ConfirmModal from "../ConfirmModal/ConfirmModal";
+// src/shared/ui/Header/Header.jsx
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import styles from './Header.module.css';
+import logo from '../../../assets/logo.svg';
+import { useSession } from '../../../app/providers/SessionContext';
 
 function getUserNameFromSession(s) {
-  if (!s) return "";
+  if (!s) return '';
   return (
-    s.ime_korisnika ||
-    s.potpis_korisnika ||
-    [s.ime, s.prezime].filter(Boolean).join(" ") ||
-    ""
+    s.ime_korisnika || s.potpis_korisnika || [s.ime, s.prezime].filter(Boolean).join(' ') || ''
   );
 }
 
 export default function Header() {
+  const navigate = useNavigate();
   const { session } = useSession() || { session: null };
-  const userName = (getUserNameFromSession(session) || "Korisnik").trim();
-
-  const logoutHref =
-    (typeof window !== "undefined" && window.__LOGOUT_URL__) ||
-    import.meta.env.VITE_LOGOUT_URL ||
-    null;
-
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  const handleConfirm = () => {
-    setConfirmOpen(false);
-    if (logoutHref) window.location.assign(logoutHref);
-    else console.warn("Postavite VITE_LOGOUT_URL ili window.__LOGOUT_URL__");
-  };
+  const userName = (getUserNameFromSession(session) || 'Korisnik').trim();
 
   return (
     <header className={styles.header}>
@@ -47,11 +32,7 @@ export default function Header() {
         </div>
 
         <div className={styles.userArea}>
-          <div
-            className={styles.userCard}
-            title={userName}
-            aria-label={userName}
-          >
+          <div className={styles.userCard} title={userName} aria-label={userName}>
             <svg
               viewBox="0 0 24 24"
               className={styles.userIcon}
@@ -59,14 +40,7 @@ export default function Header() {
               height="22"
               aria-hidden="true"
             >
-              <circle
-                cx="12"
-                cy="8"
-                r="4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              />
+              <circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
               <path
                 d="M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8"
                 fill="none"
@@ -80,12 +54,13 @@ export default function Header() {
             </div>
           </div>
 
+          {/* Dugme sada vodi na izbor klinike / skladišta */}
           <button
             type="button"
             className={styles.iconBtn}
-            aria-label="Izlaz"
-            title="Izlaz"
-            onClick={() => setConfirmOpen(true)}
+            aria-label="Promjena lokacije / login"
+            title="Promjena lokacije / login"
+            onClick={() => navigate('/')}
           >
             <svg
               viewBox="0 0 24 24"
@@ -114,16 +89,6 @@ export default function Header() {
           </button>
         </div>
       </div>
-
-      <ConfirmModal
-        open={confirmOpen}
-        title="Da li ste sigurni da želite da se odjavite?"
-        description=""
-        confirmText="Odjavi me"
-        cancelText="Odustani"
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={handleConfirm}
-      />
     </header>
   );
 }

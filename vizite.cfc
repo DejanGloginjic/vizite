@@ -1,7 +1,7 @@
 <cfcomponent displayname="vizite">
     <cfinclude template="../cffunkcije.cfm">
 
-    <cfset SESSION.baza_podataka = "ambulanta_zlatno_doba">
+    <!---<cfset SESSION.baza_podataka = "kiss">
     <cfset SESSION.id_korisnika = 15>
     <cfset SESSION.organizacija = 1000>
     <cfif structKeyExists(server, "cgi") AND structKeyExists(cgi, "request_method") AND cgi.request_method EQ "OPTIONS">
@@ -17,7 +17,7 @@
     <cfheader name="Access-Control-Allow-Credentials" value="true">
     <cfheader name="Access-Control-Allow-Methods" value="GET, POST, PUT, DELETE, OPTIONS">
     <cfheader name="Access-Control-Allow-Headers" value="Content-Type">
-    <cfheader name="Access-Control-Max-Age" value="86400">
+    <cfheader name="Access-Control-Max-Age" value="86400">--->
 
     <!-- Pomocna funkcija: Query to Array -->
     <cffunction name="QueryToArray" access="public" output="false" returntype="array">
@@ -52,16 +52,31 @@
          ŠIFRARNICI / POMOĆNE
          ========================= -->
 
-    <!-- Sve sobe (za filter) -->
+    <!-- Sve sobe za izabrano skladište iz sesije -->
     <cffunction name="getRooms" access="remote" returntype="array" returnformat="json">
-        <cfset var q = "">
+        <cfset var q         = "" />
+        <cfset var result    = [] />
+        <cfset var skladisteId = Val(SESSION.izabrano_skladiste) />
+
+        <!-- Ako nije izabrano skladište u sesiji, vrati prazan niz -->
+        <cfif NOT skladisteId>
+            <cfreturn result>
+        </cfif>
+
         <cfquery name="q" datasource="#SESSION.baza_podataka#">
-            SELECT id, naziv
+            SELECT
+                id,
+                naziv
             FROM soba
+            WHERE skladiste = <cfqueryparam cfsqltype="cf_sql_integer" value="#skladisteId#">
             ORDER BY naziv
         </cfquery>
-        <cfreturn QueryToArray(q)>
+
+        <cfset result = QueryToArray(q) />
+        <cfreturn result>
     </cffunction>
+
+
 
     <!-- (Opcionalno) Sve vrste zadataka (meta za UI) -->
     <cffunction name="getTaskTypes" access="remote" returntype="array" returnformat="json">
@@ -94,20 +109,23 @@
          LISTA PACIJENATA
          ========================= -->
 
-    <!-- Aktivni pacijenti + summariji zadataka za dati dan -->
-    <cffunction name="getPatients" access="remote" returntype="array" returnformat="json">
-        <cfargument name="soba_id" type="numeric" required="no">
-        <cfargument name="date"    type="string"  required="no" default="">
-        <cfset var q  = "">
-        <cfset var dt = "">
+<cffunction name="getPatients" access="remote" returntype="any" returnformat="json">
+    <cfargument name="soba_id" type="numeric" required="no">
+    <cfargument name="date"    type="string"  required="no" default="">
 
-        <!-- normalizuj datum -->
-        <cfif len(arguments.date)>
-            <cfset dt = arguments.date>
-        <cfelse>
-            <cfset dt = DateFormat(now(),"yyyy-mm-dd")>
-        </cfif>
+    <cfset var q         = "" />
+    <cfset var dt        = "" />
+    <cfset var grupaId   = Val(SESSION.izabrana_grupa_skladista) />
+    <cfset var skladisteId = Val(SESSION.izabrano_skladiste) />
 
+    <!-- normalizuj datum (trenutno ga ne koristimo, ali ostavljamo zbog API-ja) -->
+    <cfif len(arguments.date)>
+        <cfset dt = arguments.date>
+    <cfelse>
+        <cfset dt = DateFormat(now(),"yyyy-mm-dd")>
+    </cfif>
+
+    <cftry>
         <cfquery name="q" datasource="#SESSION.baza_podataka#">
             SELECT
                 p.id,
@@ -115,50 +133,40 @@
                 p.ime,
                 p.pol,
                 p.datum_rodjenja,
-                p.boja,
-                p.upozorenje,
-                s.id  AS soba_id,
-                s.naziv AS soba,
-                k.id  AS krevet_id,
+
+                s.id          AS soba_id,
+                s.naziv       AS soba,
+                k.id          AS krevet_id,
                 k.broj_kreveta,
 
-                /* --- sažetak zadataka za dan dt --- */
-                IFNULL(ts.total,   0) AS task_total,
-                IFNULL(ts.done,    0) AS task_done,
-                IFNULL(ts.overdue, 0) AS task_overdue
+                0 AS task_total,
+                0 AS task_done,
+                0 AS task_overdue
 
             FROM pacijenti p
+
+            JOIN epizoda e
+                ON e.id_pacijenta = p.id
+                AND (e.datum_do IS NULL OR e.datum_do > NOW())
+                <cfif grupaId>
+                    AND e.skladiste_grupa = <cfqueryparam cfsqltype="cf_sql_integer" value="#grupaId#">
+                </cfif>
+                <cfif skladisteId>
+                    AND e.skladiste = <cfqueryparam cfsqltype="cf_sql_integer" value="#skladisteId#">
+                </cfif>
+
             JOIN krevet_detalji kd
                 ON kd.id_pacijenta = p.id
                 AND (kd.datum_do IS NULL OR kd.datum_do > NOW())
-            JOIN krevet k ON k.id = kd.id_kreveta
-            JOIN soba   s ON s.id = k.soba_id
+                AND kd.id_epizode = e.id
 
-            /* --- agregat zadataka po pacijentu za traženi dan --- */
-            LEFT JOIN (
-                SELECT
-                    d.id_pacijenta                 AS pid,
-                    COUNT(*)                       AS total,
-                    SUM(CASE WHEN d.status = 1 THEN 1 ELSE 0 END) AS done,
-                    /* overdue: ako je dan u prošlosti -> sve nezavršeno je overdue;
-                    ako je dan danas -> nezavršeno sa vremenom < NOW();
-                    ako je u budućnosti -> 0 */
-                    SUM(
-                        CASE
-                        WHEN d.status <> 1 AND (
-                            DATE(d.datum) < <cfqueryparam value="#dt#" cfsqltype="cf_sql_date">
-                            OR (DATE(d.datum) = <cfqueryparam value="#dt#" cfsqltype="cf_sql_date"> AND TIME(d.datum) < TIME(NOW()))
-                        )
-                        THEN 1 ELSE 0
-                        END
-                    ) AS overdue
-                FROM ttd_lista_sadrzaj_detalji d
-                WHERE d.obrisano = 0
-                AND DATE(d.datum) = <cfqueryparam value="#dt#" cfsqltype="cf_sql_date">
-                GROUP BY d.id_pacijenta
-            ) ts ON ts.pid = p.id
+            JOIN krevet k
+                ON k.id = kd.id_kreveta
 
-            WHERE 1=1
+            JOIN soba s
+                ON s.id = k.soba_id
+
+            WHERE 1 = 1
             <cfif structKeyExists(arguments, "soba_id") AND len(arguments.soba_id)>
                 AND s.id = <cfqueryparam value="#arguments.soba_id#" cfsqltype="cf_sql_integer">
             </cfif>
@@ -167,7 +175,27 @@
         </cfquery>
 
         <cfreturn QueryToArray(q)>
-    </cffunction>
+
+        <cfcatch type="any">
+            <cfset var err = StructNew()>
+            <cfset err.ok        = false>
+            <cfset err.message   = cfcatch.message>
+            <cfset err.detail    = cfcatch.detail>
+            <cfset err.type      = cfcatch.type>
+            <cfset err.sqlState  = structKeyExists(cfcatch, "SQLState") ? cfcatch.SQLState : "">
+            <cfset err.nativeErr = structKeyExists(cfcatch, "NativeErrorCode") ? cfcatch.NativeErrorCode : "">
+            <cfset err.queryErr  = structKeyExists(cfcatch, "queryError") ? cfcatch.queryError : "">
+            <cfset err.where     = "vizite.cfc/getPatients">
+
+            <cfreturn err>
+        </cfcatch>
+    </cftry>
+</cffunction>
+
+
+
+
+
 
     <!-- Aktivni pacijenti sa AKTIVNOM epizodom + važećim krevetom; opciono filtriranje po sobi -->
     <!---<cffunction name="getPatients" access="remote" returntype="array" returnformat="json">
@@ -345,5 +373,233 @@
 
         <cfreturn QueryToArray(q)>
     </cffunction>
+
+<cffunction name="lista_skladista_korisnika" access="remote" returntype="array" returnformat="json"
+    hint="Vraća sve skladiste_grupa i njihova skladista za trenutnog korisnika iz sesije.">
+
+    <cfset var userId    = Val(SESSION.id_korisnika) />
+    <cfset var qData     = "" />
+    <cfset var groups    = [] />
+    <cfset var groupsMap = StructNew() />
+    <cfset var gid       = 0 />
+    <cfset var g         = "" />
+    <cfset var s         = "" />
+
+    <!-- Ako nema korisnika u sesiji, vrati prazan niz -->
+    <cfif NOT userId>
+        <cfreturn groups>
+    </cfif>
+
+    <!-- 1) Povuci grupe + skladišta za tog korisnika -->
+    <cfquery name="qData" datasource="#SESSION.baza_podataka#">
+        SELECT DISTINCT
+            g.ID                     AS grupa_id,
+            g.naziv                  AS grupa_naziv,
+            g.opis                   AS grupa_opis,
+            g.adresa                 AS grupa_adresa,
+
+            s.ID                     AS skladiste_id,
+            s.naziv                  AS skladiste_naziv,
+            s.adresa                 AS skladiste_adresa,
+            s.aktivno                AS skladiste_aktivno
+
+        FROM conf_korisnici_organizacione_jedinice ku
+        INNER JOIN skladiste_grupa g
+            ON g.ID = ku.id_organizacione_jedinice
+        LEFT JOIN skladiste s
+            ON s.ID_grupe = g.ID
+
+        WHERE ku.id_korisnika = <cfqueryparam cfsqltype="cf_sql_integer" value="#userId#">
+        AND s.aktivno = 1
+
+        ORDER BY g.naziv, s.naziv
+    </cfquery>
+
+    <!-- 2) Grupisanje: jedna grupa -> niz skladišta -->
+    <cfloop query="qData">
+        <cfset gid = qData.grupa_id />
+
+        <!-- ako grupa još nije dodana, kreiraj je -->
+        <cfif NOT StructKeyExists(groupsMap, gid)>
+            <cfset g = StructNew() />
+            <cfset g.id        = qData.grupa_id />
+            <cfset g.naziv     = qData.grupa_naziv />
+            <cfset g.opis      = qData.grupa_opis />
+            <cfset g.adresa    = qData.grupa_adresa />
+            <!-- ovdje nemamo g.aktivno u bazi, pa ili ga preskačemo ili hard-code 1 -->
+            <cfset g.aktivno   = 1 />
+            <cfset g.skladista = [] />
+
+            <cfset ArrayAppend(groups, g) />
+            <cfset groupsMap[gid] = g />
+        </cfif>
+
+        <!-- ako postoji skladište, dodaj ga u listu -->
+        <cfif Len(qData.skladiste_id & "")>
+            <cfset s = StructNew() />
+            <cfset s.id        = qData.skladiste_id />
+            <cfset s.naziv     = qData.skladiste_naziv />
+            <cfset s.adresa    = qData.skladiste_adresa />
+            <cfset s.aktivno   = qData.skladiste_aktivno />
+
+            <cfset ArrayAppend(groupsMap[gid].skladista, s) />
+        </cfif>
+    </cfloop>
+
+    <!-- 3) Vrati JSON array -->
+    <cfreturn groups>
+</cffunction>
+
+
+<cffunction name="setWorkingLocation" access="remote" returntype="struct" returnformat="json"
+    hint="Postavlja izabranu grupu skladišta i skladište u SESSION.">
+    <cfargument name="grupa_id"     type="numeric" required="yes">
+    <cfargument name="skladiste_id" type="numeric" required="yes">
+
+    <cfset var res = StructNew() />
+
+    <!-- Normalizuj vrijednosti -->
+    <cfset SESSION.izabrana_grupa_skladista = Val(arguments.grupa_id) />
+    <cfset SESSION.izabrano_skladiste       = Val(arguments.skladiste_id) />
+
+    <!-- Po želji možeš ovdje dodati još logike (npr. provjera da li skladište pripada grupi) -->
+
+    <cfset res.ok                         = true />
+    <cfset res.izabrana_grupa_skladista   = SESSION.izabrana_grupa_skladista />
+    <cfset res.izabrano_skladiste         = SESSION.izabrano_skladiste />
+
+    <cfreturn res />
+</cffunction>
+
+<cffunction name="getPatientDocuments" access="remote" returntype="any" returnformat="json"
+    hint="Vraća dokumente pacijenta, grupisane po epizodi (sa osnovnim metapodacima).">
+    <cfargument name="patient_id" type="numeric" required="yes">
+    <!-- opcioni filteri, za kasnije proširenje -->
+    <cfargument name="date_from"  type="string"  required="no" default="">
+    <cfargument name="date_to"    type="string"  required="no" default="">
+    <cfargument name="episode_id" type="numeric" required="no">
+
+    <cfset var q  = "" />
+    <cfset var df = "" />
+    <cfset var dt = "" />
+
+    <!-- normalizuj datume, ako su poslati -->
+    <cfif len(arguments.date_from)>
+        <cfset df = arguments.date_from />
+    </cfif>
+    <cfif len(arguments.date_to)>
+        <cfset dt = arguments.date_to />
+    </cfif>
+
+    <cftry>
+        <cfquery name="q" datasource="#SESSION.baza_podataka#">
+            SELECT
+                d.id,
+                d.id_pacijenta,
+                d.id_epizode,
+                d.id_forme,
+                d.datum_kreiranja,
+                d.sazetak,
+
+                e.broj_epizode,
+                e.datum_od,
+                e.datum_do,
+
+                f.naslov,
+                ku.potpis                 AS korisnik_potpis,
+
+                sg.naziv                  AS skladiste_grupa_naziv,
+                s.id                      AS skladiste_id
+
+            FROM dokumenti d
+            LEFT JOIN forma        f  ON f.id = d.id_forme
+            LEFT JOIN epizoda      e  ON e.id = d.id_epizode
+            LEFT JOIN conf_korisnici ku ON ku.id = d.id_korisnika
+            LEFT JOIN skladiste_grupa sg ON sg.id = e.skladiste_grupa
+            LEFT JOIN skladiste    s  ON s.id = e.skladiste
+
+            WHERE d.obrisano = 0
+              AND d.id_pacijenta = <cfqueryparam value="#arguments.patient_id#" cfsqltype="cf_sql_integer">
+
+            <cfif structKeyExists(arguments, "episode_id") AND len(arguments.episode_id)>
+              AND d.id_epizode = <cfqueryparam value="#arguments.episode_id#" cfsqltype="cf_sql_integer">
+            </cfif>
+
+            <cfif len(df)>
+              AND DATE(d.datum_kreiranja) >= <cfqueryparam value="#df#" cfsqltype="cf_sql_date">
+            </cfif>
+
+            <cfif len(dt)>
+              AND DATE(d.datum_kreiranja) <= <cfqueryparam value="#dt#" cfsqltype="cf_sql_date">
+            </cfif>
+
+            ORDER BY d.datum_kreiranja DESC, d.id DESC
+        </cfquery>
+
+        <cfreturn QueryToArray(q) />
+
+        <cfcatch type="any">
+            <cfset var err = StructNew()>
+            <cfset err.ok        = false>
+            <cfset err.message   = cfcatch.message>
+            <cfset err.detail    = cfcatch.detail>
+            <cfset err.type      = cfcatch.type>
+            <cfset err.sqlState  = structKeyExists(cfcatch, "SQLState") ? cfcatch.SQLState : "">
+            <cfset err.nativeErr = structKeyExists(cfcatch, "NativeErrorCode") ? cfcatch.NativeErrorCode : "">
+            <cfset err.queryErr  = structKeyExists(cfcatch, "queryError") ? cfcatch.queryError : "">
+            <cfset err.where     = "vizite.cfc/getPatientDocuments">
+
+            <cfreturn err>
+        </cfcatch>
+    </cftry>
+</cffunction>
+
+<cffunction name="lista_epizoda_pacijenta"
+           access="remote"
+           returntype="void"
+           returnformat="json"
+           hint="Vraća sve epizode za datog pacijenta.">
+  <cfargument name="pacijent_id" type="string" required="yes">
+
+  <cftry>
+    <cfset var pid = Val(arguments.pacijent_id)>
+
+    <cfif NOT pid>
+      <cfset fail(
+        code   = "BAD_REQUEST",
+        message= "Nedostaje ili je neispravan pacijent_id.",
+        status = 400
+      )>
+    </cfif>
+
+    <cfquery name="qEp" datasource="#SESSION.baza_podataka#">
+      SELECT
+        e.id          AS id_epizode,
+        e.pacijent_id,
+        e.broj_epizode,
+        e.datum_od,
+        e.datum_do
+      FROM epizoda_pacijenta e
+      WHERE e.pacijent_id = <cfqueryparam cfsqltype="cf_sql_integer" value="#pid#">
+      ORDER BY
+        e.datum_od DESC,
+        e.id DESC
+    </cfquery>
+
+    <!--- pretpostavljam da već imaš QueryToArray + ok/fail helper-e kao u drugim CFC-ovima --->
+    <cfset ok(
+      data = QueryToArray(qEp)
+    )>
+    
+    <cfcatch type="any">
+      <cfset fail(
+        code   = "SERVER_ERROR",
+        message= "Greška pri učitavanju epizoda pacijenta: " & cfcatch.message,
+        status = 500
+      )>
+    </cfcatch>
+  </cftry>
+</cffunction>
+
 
 </cfcomponent>

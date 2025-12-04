@@ -5,41 +5,75 @@
   padding: 12px;
 }
 
-/* Jedan okvir: ime + podaci + datum */
-.headerCard {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: #ffffff;
-  border: 1px solid var(--border, #e5e7eb);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
-  margin-bottom: 14px;
-  min-width: 0;
+/* Header bez dodatnog “oblaka” – samo margina ispod */
+.header {
+  margin-bottom: 8px;
 }
 
-/* lijeva kolona – PatientHeader */
+/* lijeva kolona – PatientHeader (ako ti ikad zatreba) */
 .patientCol {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-/* desna kolona – kompaktan blok za datum */
-.dateCol {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
+/* === AntD Tabs – “pill” stil === */
+.tabsRoot {
+  margin: 4px 0 8px;
 }
 
-/* mala labela iznad inputa */
-.dateLabel {
-  font-size: 11px;
+.tabsRoot :global(.ant-tabs-nav) {
+  margin: 0;
+}
+
+.tabsRoot :global(.ant-tabs-nav-wrap) {
+  padding: 3px;
+  border-radius: 999px;
+  background: #f3f4f6;
+}
+
+.tabsRoot :global(.ant-tabs-tab) {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--muted, #6b7280);
+  color: #6b7280;
+}
+
+.tabsRoot :global(.ant-tabs-tab:hover) {
+  color: #111827;
+}
+
+.tabsRoot :global(.ant-tabs-tab-active) {
+  background-color: #111827;
+}
+
+.tabsRoot :global(.ant-tabs-tab-active .ant-tabs-tab-btn) {
+  color: #f9fafb !important;
+}
+
+.tabsRoot :global(.ant-tabs-ink-bar) {
+  display: none;
+}
+
+.tabsRoot :global(.ant-tabs-content-holder) {
+  margin-top: 8px;
+}
+
+/* === Header reda za zadatke: "Zadaci" + datum u istom redu === */
+.tasksHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* Naslov sekcije */
+.h3 {
+  margin: 0; /* kontrolisaćemo margine kroz parent */
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 1.2;
 }
 
 /* red: input + "osvježavam…" */
@@ -49,7 +83,7 @@
   gap: 6px;
 }
 
-/* sam date input – kompaktan, ali dovoljno velik za tap */
+/* date input – kompaktan, ali tap-friendly */
 .date {
   height: 36px;
   padding: 0 10px;
@@ -65,14 +99,6 @@
 .dim {
   color: var(--muted, #6b7280);
   font-size: 11px;
-}
-
-/* Naslov sekcije */
-.h3 {
-  margin: 6px 0 8px;
-  font-weight: 800;
-  font-size: 18px;
-  line-height: 1.2;
 }
 
 /* skeleton / placeholder */
@@ -94,15 +120,137 @@
   font-size: 14px;
 }
 
-/* Ultra mali ekrani – dozvoli malo “sabijanje”, ali i dalje jedan red */
+/* --- Dokumenti sekcija --- */
+.docsSection {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docsHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* AntD Select za epizode */
+.episodeFilter {
+  min-width: 170px;
+}
+
+/* dotjeraj Select izgled preko global */
+.episodeFilter :global(.ant-select-selector) {
+  border-radius: 999px !important;
+  padding: 0 10px !important;
+  min-height: 32px;
+  background: #f9fafb;
+  border-color: var(--border, #e5e7eb) !important;
+}
+
+.episodeFilter :global(.ant-select-selection-item),
+.episodeFilter :global(.ant-select-selection-placeholder) {
+  font-size: 13px;
+}
+
+/* lista dokumenata – grupisana po epizodi */
+.docsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* jedna grupa (epizoda) */
+.docsGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* tanki header za epizodu */
+.docsGroupHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 6px;
+  border-left: 3px solid #3b82f6;
+  background: #eff6ff;
+  border-radius: 4px;
+}
+
+.docsGroupTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.docsGroupRange {
+  font-size: 11px;
+  color: #4b5563;
+}
+
+/* pojedinačni dokument kao kartica */
+.docCard {
+  border-radius: 14px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: #ffffff;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.03);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.docCard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+.docMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* prvi red: naslov + autor (sa titulom) */
+.docTitleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.docTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.docAuthor {
+  font-size: 11px;
+  font-weight: 500;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+/* metapodaci: datum kreiranja + organizaciona jedinica */
+.docMeta {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* Ultra mali ekrani – dozvoli malo “sabijanje” */
 @media (max-width: 360px) {
   .wrap {
     padding: 10px;
   }
 
-  .headerCard {
-    gap: 8px;
-    padding: 10px 10px;
+  .h3 {
+    font-size: 16px;
   }
 
   .date {
@@ -110,8 +258,25 @@
     font-size: 13px;
   }
 
-  .h3 {
-    font-size: 16px;
+  .episodeFilter {
+    min-width: 0;
+  }
+
+  .docsGroupHeader {
+    padding: 2px 4px;
+  }
+
+  .docTitle {
+    font-size: 13px;
+  }
+
+  .docTitleRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .docAuthor {
+    white-space: normal;
   }
 }
 
@@ -120,8 +285,136 @@
   .wrap {
     max-width: 720px;
   }
+}
 
-  .headerCard {
-    padding: 14px 16px;
+/* === FULLSCREEN VIEWER ZA DOKUMENTE === */
+
+.docViewerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  z-index: 1300;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+}
+
+/* panel preko cijelog ekrana */
+.docViewerPanel {
+  background: #f3f4f6;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* da zauzme cijeli ekran */
+}
+
+/* header iznad iframe-a – malo viši, svijetao, uz crveni akcenat */
+.docViewerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px; /* malo viši radi click/tap-a */
+  background: #ffffff; /* bijeli header kao dokument */
+  border-bottom: 1px solid #fecaca; /* svijetlo crvena linija */
+  color: #111827;
+}
+
+/* lijevo – datum dokumenta */
+.docViewerDate {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+/* navigacija: strelice + counter + zatvori (desno) */
+.docViewerNav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.docViewerNavBtn,
+.docViewerCloseBtn {
+  border: 1px solid #fca5a5; /* svijetlo crvena */
+  background: #fee2e2; /* blago crvenkasta */
+  color: #b91c1c; /* tamnija crvena za tekst */
+  border-radius: 999px;
+  padding: 3px 10px; /* veći hit-area za prst */
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.docViewerNavBtn[disabled] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.docViewerCloseBtn {
+  font-weight: 600;
+}
+
+/* "2 / 5" */
+.docViewerCounter {
+  font-size: 11px;
+  color: #9f1239;
+}
+
+/* tijelo sa iframe-om popunjava ostatak */
+.docViewerBody {
+  flex: 1 1 auto;
+  background: #000;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+.docViewerIframe {
+  border: none;
+  width: 100%;
+  height: 100%; /* zauzima sve ispod headera */
+}
+
+.docViewerSwipeZone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  touch-action: pan-y; /* dozvoli vertikalno pomjeranje */
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.08), transparent);
+  opacity: 0;
+}
+
+.docViewerSwipeZoneLeft {
+  left: 0;
+}
+
+.docViewerSwipeZoneRight {
+  right: 0;
+  transform: scaleX(-1);
+}
+
+.docViewerSwipeZone:active {
+  opacity: 0.08; /* vizuelni feedback pri swipe-u/tapu */
+}
+
+/* mobilne prilagodbe */
+@media (max-width: 640px) {
+  .docViewerPanel {
+    max-width: 100%;
+  }
+
+  /* header ostaje jedan red, samo malo kompaktniji */
+  .docViewerHeader {
+    padding: 6px 8px;
+  }
+
+  .docViewerNavBtn,
+  .docViewerCloseBtn {
+    padding: 3px 8px;
+    font-size: 11px;
   }
 }

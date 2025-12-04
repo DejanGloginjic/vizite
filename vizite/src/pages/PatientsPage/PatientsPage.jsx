@@ -20,12 +20,13 @@ function extractRoomId(p, roomsByName, roomsById) {
   if (typeof raw === 'number') return String(raw);
   if (typeof raw === 'string') {
     const s = raw.trim();
-    if (/^\d+$/.test(s)) return s; // “101”
-    const m = s.match(/(\d{1,6})$/); // “Soba 101” -> “101”
+    if (/^\d+$/.test(s)) return s;
+    const m = s.match(/(\d{1,6})$/);
     if (m && roomsById.has(m[1])) return m[1];
     const byName = roomsByName.get(s.toLowerCase());
     if (byName) return byName;
   }
+
   const name = p?.soba_naziv ?? p?.sobaNaziv ?? null;
   if (name) {
     const byName = roomsByName.get(String(name).toLowerCase());
@@ -43,22 +44,25 @@ export default function PatientsPage() {
 
   const [searchId, setSearchId] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
+  const inputRef = useRef(null);
 
-  const inputRef = useRef(null); // 🔹 ref za Input.Search
+  // ============== SIGURNI NIZOVI (sprječava crash app) ==============
 
-  const { data: rooms = [], isLoading: roomsLoading } = useRoomsQuery();
+  const roomsResp = useRoomsQuery();
+  const rooms = Array.isArray(roomsResp.data) ? roomsResp.data : [];
+  const roomsLoading = roomsResp.isLoading;
 
-  // filtrirani + datum
-  const {
-    data: patients = [],
-    isLoading: patientsLoading,
-    isFetching,
-    isError,
-    error,
-  } = usePatientsQuery(selectedRoom || undefined, today);
+  const patientsResp = usePatientsQuery(selectedRoom || undefined, today);
+  const patients = Array.isArray(patientsResp.data) ? patientsResp.data : [];
+  const patientsLoading = patientsResp.isLoading;
+  const isFetching = patientsResp.isFetching;
+  const isError = patientsResp.isError;
+  const error = patientsResp.error;
 
-  // svi (za brojače) + datum
-  const { data: allPatients = [] } = usePatientsQuery(undefined, today);
+  const allPatientsResp = usePatientsQuery(undefined, today);
+  const allPatients = Array.isArray(allPatientsResp.data) ? allPatientsResp.data : [];
+
+  // --------------------------------------------------------
 
   const onChangeRoom = (value) => {
     if (value) setParams({ room: value });
@@ -68,9 +72,9 @@ export default function PatientsPage() {
   const prefetch = usePrefetchPatient();
   const onPrefetch = (id) => id && prefetch(id);
 
-  const items = useMemo(() => patients ?? [], [patients]);
+  const items = useMemo(() => patients, [patients]);
 
-  // mape soba po nazivu/id (za brojače)
+  // ---------------- MAPE SOBA ----------------
   const roomsByName = useMemo(() => {
     const m = new Map();
     for (const r of rooms) {
@@ -86,10 +90,10 @@ export default function PatientsPage() {
     return m;
   }, [rooms]);
 
-  // broj pacijenata po sobama
+  // ---------------- BROJ PACIJENATA PO SOBAMA ----------------
   const counts = useMemo(() => {
     const m = new Map();
-    for (const p of allPatients || []) {
+    for (const p of allPatients) {
       const id = extractRoomId(p, roomsByName, roomsById);
       if (!id) continue;
       m.set(id, (m.get(id) || 0) + 1);
@@ -97,16 +101,16 @@ export default function PatientsPage() {
     return m;
   }, [allPatients, roomsByName, roomsById]);
 
-  const totalPatients = allPatients?.length ?? 0;
+  const totalPatients = allPatients.length;
 
-  // 🔹 fokusiraj polje za pretragu na mount
+  // ---------------- FOKUS NA SEARCH ----------------
   useEffect(() => {
     if (inputRef.current && typeof inputRef.current.focus === 'function') {
       inputRef.current.focus();
     }
   }, []);
 
-  // === pretraga pacijenta po ID-u ===
+  // ---------------- PRETRAGA PACIJENTA ----------------
   const handleSearchPatient = async (value) => {
     const raw = (value ?? searchId).trim();
     if (!raw) {
@@ -136,19 +140,14 @@ export default function PatientsPage() {
     }
   };
 
-  // 🔹 onChange handler koji auto-trigguje search kad dužina >= 14
+  // auto-trigger kada dužina >= 14
   const handleSearchChange = (e) => {
     const next = e.target.value;
     const nextTrimmed = next.trim();
 
     setSearchId(next);
 
-    // pokreni search jednom kad pređeš prag 14 karaktera
-    if (
-      !searchLoading &&
-      nextTrimmed.length >= 14 &&
-      searchId.trim().length < 14 // ranije je bilo ispod 14
-    ) {
+    if (!searchLoading && nextTrimmed.length >= 14 && searchId.trim().length < 14) {
       handleSearchPatient(nextTrimmed);
     }
   };
@@ -161,7 +160,7 @@ export default function PatientsPage() {
         <div className={styles.filters}>
           {/* pretraga pacijenta po ID-u */}
           <Input.Search
-            ref={inputRef} // 🔹 da bi se fokusirao na mount
+            ref={inputRef}
             className={styles.patientSearch}
             placeholder="ID pacijenta"
             allowClear
@@ -190,11 +189,9 @@ export default function PatientsPage() {
               const label = r.naziv ?? `Soba ${id}`;
               const count = counts.get(id) ?? 0;
               return (
-                <Select.Option
-                  key={id}
-                  value={id}
-                  label={label}
-                >{`${label} (${count})`}</Select.Option>
+                <Select.Option key={id} value={id} label={label}>
+                  {`${label} (${count})`}
+                </Select.Option>
               );
             })}
           </Select>
