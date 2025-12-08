@@ -56,10 +56,11 @@ export default function PatientTasks({ tasks = [], onSave }) {
 
   const handleSave = (e) => {
     e.preventDefault();
-    const doneIds = Object.entries(checkedMap)
-      .filter(([, v]) => v)
-      .map(([k]) => k);
-    onSave?.({ doneIds, note });
+    const keyedItems = items.map((t, i) => [taskKey(t, i), t]);
+    const completed = keyedItems.filter(([key]) => checkedMap[key]);
+    const doneIds = completed.map(([key]) => key);
+    const doneTasks = completed.map(([, task]) => task);
+    onSave?.({ doneIds, doneTasks, note });
   };
 
   return (

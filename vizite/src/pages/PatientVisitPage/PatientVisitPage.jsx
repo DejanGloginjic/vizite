@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Tabs, Select } from 'antd';
 import dayjs from 'dayjs';
@@ -59,6 +59,32 @@ export default function PatientVisitPage() {
     const v = e.target.value;
     setSp(v && v !== today ? { date: v } : {}); // danas bez query parametra
   };
+
+  const handleSaveTasks = useCallback(
+    ({ doneTasks = [], note }) => {
+      console.group('Završeni zadaci');
+      console.log('Pacijent ID:', id, 'Datum:', date);
+      if (doneTasks.length) {
+        console.table(
+          doneTasks.map((t) => ({
+            id: t.id ?? t.id_vrste ?? '',
+            naziv: t.naziv ?? t.vrsta ?? 'Zadatak',
+            vrijednost: t.d_vrijednost ?? t.vrijednost ?? t.kolicina ?? '',
+            jedinica: t.d_jedinica ?? t.jedinica ?? '',
+            napomena: t.napomena ?? '',
+            vrijeme: t.datum ?? '',
+          }))
+        );
+      } else {
+        console.log('Nema označenih zadataka.');
+      }
+      if (note?.trim()) {
+        console.log('Napomena:', note.trim());
+      }
+      console.groupEnd();
+    },
+    [date, id]
+  );
 
   // === priprema dokumenata ===
   const docs = useMemo(() => (Array.isArray(rawDocs) ? rawDocs : []), [rawDocs]);
@@ -293,7 +319,7 @@ export default function PatientVisitPage() {
               Greška pri učitavanju zadataka: {String(tasksErr?.message || '')}
             </div>
           ) : (
-            <PatientTasks tasks={tasks} />
+            <PatientTasks tasks={tasks} onSave={handleSaveTasks} />
           )}
         </div>
       ),
