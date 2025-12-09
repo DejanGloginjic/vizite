@@ -131,6 +131,7 @@
                     aktivno
                 FROM proizvodi
                 WHERE aktivno = 1
+                AND lijek = 1
                 <cfif Len(term)>
                     AND (
                         LOWER(ime)   LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="%#term#%">
@@ -156,6 +157,138 @@
                 <cfset err.nativeErr = structKeyExists(cfcatch, "NativeErrorCode") ? cfcatch.NativeErrorCode : "">
                 <cfset err.queryErr  = structKeyExists(cfcatch, "queryError") ? cfcatch.queryError : "">
                 <cfreturn err>
+            </cfcatch>
+        </cftry>
+    </cffunction>
+
+    <!-- Kloniraj zadatke sa jednog datuma na drugi za pacijenta -->
+    <cffunction name="clonePatientTasks" access="remote" returntype="struct" returnformat="json">
+        <cfargument name="patient_id" type="numeric" required="yes">
+        <cfargument name="source_date" type="string" required="yes"> <!-- 'YYYY-MM-DD' -->
+        <cfargument name="target_date" type="string" required="yes"> <!-- 'YYYY-MM-DD' -->
+        <cfargument name="task_ids"   type="string" required="no" default=""> <!-- CSV lista zadataka za kloniranje (opciono) -->
+
+        <cfset var res   = StructNew()>
+        <cfset var pid   = Val(arguments.patient_id)>
+        <cfset var src   = Trim(arguments.source_date)>
+        <cfset var trg   = Trim(arguments.target_date)>
+        <cfset var ids   = []>
+        <cfset var idsList = "">
+        <cfset var qSrc  = "">
+        <cfset var qEp   = "">
+        <cfset var epId  = "">
+        <cfset var row   = "">
+        <cfset var newId = "">
+        <cfset var created = []>
+
+        <cftry>
+            <cfif NOT pid>
+                <cfthrow message="Nedostaje pacijent_id.">
+            </cfif>
+            <cfif NOT Len(src) OR NOT Len(trg)>
+                <cfthrow message="Nedostaje source_date ili target_date.">
+            </cfif>
+
+            <!-- aktivna epizoda -->
+            <cfquery name="qEp" datasource="#SESSION.baza_podataka#">
+                SELECT id
+                FROM epizoda
+                WHERE id_pacijenta = <cfqueryparam cfsqltype="cf_sql_integer" value="#pid#">
+                  AND (datum_do IS NULL OR datum_do > NOW())
+                ORDER BY datum_od DESC, id DESC
+                LIMIT 1
+            </cfquery>
+            <cfif qEp.recordCount>
+                <cfset epId = qEp.id>
+            </cfif>
+
+            <!-- parse ids ako su poslati -->
+            <cfif Len(arguments.task_ids)>
+                <cfset ids = ListToArray(arguments.task_ids)>
+                <cfset idsList = ArrayToList(ids)>
+            </cfif>
+
+            <!-- zadaci sa izvornog datuma -->
+            <cfquery name="qSrc" datasource="#SESSION.baza_podataka#">
+                SELECT
+                    id,
+                    id_vrste,
+                    id_ref,
+                    datum,
+                    kolicina,
+                    vrijednost,
+                    jedinica,
+                    napomena
+                FROM ttd_lista_sadrzaj_detalji
+                WHERE id_pacijenta = <cfqueryparam cfsqltype="cf_sql_integer" value="#pid#">
+                  AND DATE(datum) = <cfqueryparam cfsqltype="cf_sql_date" value="#src#">
+                  AND obrisano = 0
+                  <cfif Len(idsList)>
+                    AND id IN (
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#idsList#" list="true">
+                    )
+                  </cfif>
+                ORDER BY datum, id
+            </cfquery>
+
+            <cfloop query="qSrc">
+                <cfset var typeId        = Val(qSrc.id_vrste)>
+                <cfset var newValue      = qSrc.vrijednost>
+                <cfset var newKolicina   = qSrc.kolicina>
+
+                <!-- za mjerne zadatke (temp/pritisak/puls) ne prenosimo izmjerene vrijednosti -->
+                <cfif typeId EQ 5 OR typeId EQ 6 OR typeId EQ 7>
+                    <cfset newValue = "">
+                    <cfset newKolicina = "">
+                </cfif>
+
+                <!-- kombinuj target date + vrijeme iz izvora -->
+                <cfset var tDate = createDateTime(
+                    val(Left(trg,4)),
+                    val(Mid(trg,6,2)),
+                    val(Right(trg,2)),
+                    Hour(qSrc.datum),
+                    Minute(qSrc.datum),
+                    Second(qSrc.datum)
+                )>
+
+                <cfquery name="qInsClone" datasource="#SESSION.baza_podataka#" result="qRes">
+                    INSERT INTO ttd_lista_sadrzaj_detalji
+                        (id_pacijenta, id_epizode, id_vrste, id_ref, datum, kolicina, vrijednost, jedinica, id_kreirao, status, obrisano, napomena)
+                    VALUES (
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#pid#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#epId#" null="#NOT Len(epId)#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#qSrc.id_vrste#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#qSrc.id_ref#" null="#NOT Len(qSrc.id_ref & '')#">,
+                        <cfqueryparam cfsqltype="cf_sql_timestamp" value="#tDate#">,
+                        <cfqueryparam cfsqltype="cf_sql_decimal" scale="8" value="#newKolicina#" null="#NOT Len(newKolicina & '')#">,
+                        <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#newValue#">,
+                        <cfqueryparam cfsqltype="cf_sql_varchar" value="#qSrc.jedinica#" null="#NOT Len(qSrc.jedinica & '')#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.id_korisnika#" null="#NOT structKeyExists(SESSION,'id_korisnika')#">,
+                        0,
+                        0,
+                        <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#qSrc.napomena#">
+                    )
+                </cfquery>
+
+                <cfset newId = structKeyExists(qRes,"GENERATEDKEY") ? qRes.GENERATEDKEY : "">
+                <cfset ArrayAppend(created, newId)>
+            </cfloop>
+
+            <cfset res.ok = true>
+            <cfset res.created = created>
+            <cfset res.count = ArrayLen(created)>
+            <cfreturn res>
+
+            <cfcatch type="any">
+                <cfset res.ok        = false>
+                <cfset res.message   = cfcatch.message>
+                <cfset res.detail    = cfcatch.detail>
+                <cfset res.where     = "vizite.cfc/clonePatientTasks">
+                <cfset res.sqlState  = structKeyExists(cfcatch, "SQLState") ? cfcatch.SQLState : "">
+                <cfset res.nativeErr = structKeyExists(cfcatch, "NativeErrorCode") ? cfcatch.NativeErrorCode : "">
+                <cfset res.queryErr  = structKeyExists(cfcatch, "queryError") ? cfcatch.queryError : "">
+                <cfreturn res>
             </cfcatch>
         </cftry>
     </cffunction>

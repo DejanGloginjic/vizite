@@ -10,3 +10,6 @@ export const createPatientTask = (payload) =>
 
 export const updatePatientTask = (payload) =>
   cfcPost("updatePatientTask", payload);
+
+export const clonePatientTasks = (payload) =>
+  cfcPost("clonePatientTasks", payload);

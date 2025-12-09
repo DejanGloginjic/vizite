@@ -16,6 +16,7 @@ import PatientHeader from '../../widgets/PatientHeader/PatientHeader';
 import PatientTasks from '../../widgets/PatientTasks/PatientTasks';
 import { ENV } from '../../shared/config/env';
 import TaskCreateModal from '../../features/task-create/TaskCreateModal'; // ⬅️ NOVO
+import TaskImportModal from '../../features/task-import/TaskImportModal';
 
 export default function PatientVisitPage() {
   const { id } = useParams();
@@ -25,6 +26,7 @@ export default function PatientVisitPage() {
 
   const [episodeFilter, setEpisodeFilter] = useState(''); // '' = sve
   const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   // === viewer state (fullscreen prikaz dokumenta) ===
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -100,7 +102,10 @@ export default function PatientVisitPage() {
           }
 
           const parsedQty = (() => {
-            const raw = kolicina;
+            const raw =
+              typeId === 3 && m?.kolicina !== undefined && m?.kolicina !== null
+                ? m.kolicina
+                : kolicina;
             if (raw === undefined || raw === null) return null;
             const s = String(raw).trim();
             if (!s.length) return null;
@@ -348,6 +353,13 @@ export default function PatientVisitPage() {
               >
                 Dodaj
               </button>
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={() => setImportModalOpen(true)}
+              >
+                Uvezi
+              </button>
             </div>
 
             <div className={styles.dateRow}>
@@ -482,6 +494,12 @@ export default function PatientVisitPage() {
         onClose={() => setTaskModalOpen(false)}
         patientId={id}
         defaultDate={date}
+      />
+      <TaskImportModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        patientId={id}
+        targetDate={date}
       />
 
       {/* === FULLSCREEN VIEWER ZA DOKUMENTE === */}

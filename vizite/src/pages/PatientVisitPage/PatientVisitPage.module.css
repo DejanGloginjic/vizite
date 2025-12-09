@@ -90,6 +90,17 @@
   transform: translateY(1px);
 }
 
+.secondaryBtn {
+  background: #f8fafc;
+  color: var(--fg, #0f172a);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 /* Naslov sekcije */
 .h3 {
   margin: 0; /* kontrolisaćemo margine kroz parent */
@@ -337,11 +348,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 6px 10px; /* malo viši radi click/tap-a */
-  background: #ffffff; /* bijeli header kao dokument */
-  border-bottom: 1px solid #fecaca; /* svijetlo crvena linija */
+  gap: 10px;
+  padding: 10px 14px; /* viši header radi tap target-a */
+  background: #ffffff;
+  border-bottom: 1px solid #fecaca;
   color: #111827;
+  min-height: 64px;
 }
 
 /* lijevo – datum dokumenta */
@@ -361,13 +373,15 @@
 
 .docViewerNavBtn,
 .docViewerCloseBtn {
-  border: 1px solid #fca5a5; /* svijetlo crvena */
-  background: #fee2e2; /* blago crvenkasta */
-  color: #b91c1c; /* tamnija crvena za tekst */
+  border: 1px solid #fca5a5;
+  background: #fee2e2;
+  color: #b91c1c;
   border-radius: 999px;
-  padding: 3px 10px; /* veći hit-area za prst */
-  font-size: 12px;
+  padding: 6px 14px; /* veće za prst */
+  font-size: 14px;
   cursor: pointer;
+  min-width: 44px;
+  min-height: 36px;
 }
 
 .docViewerNavBtn[disabled] {
@@ -376,7 +390,7 @@
 }
 
 .docViewerCloseBtn {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* "2 / 5" */

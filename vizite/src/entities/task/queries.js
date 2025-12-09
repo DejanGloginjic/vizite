@@ -4,6 +4,7 @@ import {
   getPatientTasks,
   getTaskTypes,
   updatePatientTask,
+  clonePatientTasks,
 } from "./api";
 import { QK } from "../../shared/lib/queryKeys";
 
@@ -38,6 +39,18 @@ export const useUpdateTaskMutation = (patientId, date) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload) => updatePatientTask(payload),
+    onSuccess: () => {
+      if (patientId) {
+        qc.invalidateQueries({ queryKey: QK.tasks(patientId, date) });
+      }
+    },
+  });
+};
+
+export const useCloneTasksMutation = (patientId, date) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload) => clonePatientTasks(payload),
     onSuccess: () => {
       if (patientId) {
         qc.invalidateQueries({ queryKey: QK.tasks(patientId, date) });
