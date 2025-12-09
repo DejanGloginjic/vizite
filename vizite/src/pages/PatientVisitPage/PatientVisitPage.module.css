@@ -68,6 +68,28 @@
   margin-bottom: 6px;
 }
 
+.tasksTitleRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addBtn {
+  background: var(--acc, #2563eb);
+  color: #ffffff;
+  border: 1px solid var(--acc, #2563eb);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 13px;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
+  cursor: pointer;
+}
+
+.addBtn:active {
+  transform: translateY(1px);
+}
+
 /* Naslov sekcije */
 .h3 {
   margin: 0; /* kontrolisaćemo margine kroz parent */

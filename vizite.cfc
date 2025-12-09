@@ -105,6 +105,61 @@
         <cfreturn QueryToArray(q)>
     </cffunction>
 
+    <!-- Sifrarnik proizvoda (lijekovi) za odabir u terapiji -->
+    <cffunction name="getProducts" access="remote" returntype="any" returnformat="json">
+        <cfargument name="term" type="string" required="no" default="">
+        <cfargument name="limit" type="numeric" required="no" default="50">
+        <cfset var q    = "">
+        <cfset var lim  = Val(arguments.limit)>
+        <cfset var term = Trim(LCase(arguments.term))>
+
+        <cfif lim LTE 0 OR lim GT 200>
+            <cfset lim = 50>
+        </cfif>
+
+        <cftry>
+            <cfquery name="q" datasource="#SESSION.baza_podataka#">
+                SELECT
+                    id,
+                    ime,
+                    sifra,
+                    barcode,
+                    jedmj,
+                    atc,
+                    proizvodjac_id,
+                    mpc,
+                    aktivno
+                FROM proizvodi
+                WHERE aktivno = 1
+                <cfif Len(term)>
+                    AND (
+                        LOWER(ime)   LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="%#term#%">
+                        OR LOWER(sifra) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="%#term#%">
+                        OR LOWER(barcode) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="%#term#%">
+                        OR LOWER(atc) LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="%#term#%">
+                    )
+                </cfif>
+                ORDER BY ime
+                LIMIT <cfqueryparam cfsqltype="cf_sql_integer" value="#lim#">
+            </cfquery>
+
+            <cfreturn QueryToArray(q)>
+
+            <cfcatch type="any">
+                <cfset var err = StructNew()>
+                <cfset err.ok        = false>
+                <cfset err.message   = cfcatch.message>
+                <cfset err.detail    = cfcatch.detail>
+                <cfset err.type      = cfcatch.type>
+                <cfset err.where     = "vizite.cfc/getProducts">
+                <cfset err.sqlState  = structKeyExists(cfcatch, "SQLState") ? cfcatch.SQLState : "">
+                <cfset err.nativeErr = structKeyExists(cfcatch, "NativeErrorCode") ? cfcatch.NativeErrorCode : "">
+                <cfset err.queryErr  = structKeyExists(cfcatch, "queryError") ? cfcatch.queryError : "">
+                <cfreturn err>
+            </cfcatch>
+        </cftry>
+    </cffunction>
+
     <!-- =========================
          LISTA PACIJENATA
          ========================= -->
@@ -334,6 +389,205 @@
         <cfreturn QueryToArray(q)>
     </cffunction>
 
+
+    <!-- Kreiraj novi zadatak za pacijenta -->
+    <cffunction name="createPatientTask" access="remote" returntype="struct" returnformat="json">
+        <cfargument name="patient_id" type="numeric" required="yes">
+        <cfargument name="vrsta_id"   type="numeric" required="yes">
+        <cfargument name="datum"      type="string"  required="no" default="">
+        <cfargument name="kolicina"   type="numeric" required="no">
+        <cfargument name="vrijednost" type="string"  required="no" default="">
+        <cfargument name="jedinica"   type="string"  required="no" default="">
+        <cfargument name="napomena"   type="string"  required="no" default="">
+        <cfargument name="id_ref"     type="numeric" required="no">
+        <cfargument name="status"     type="numeric" required="no">
+        <cfargument name="ponavljanje" type="numeric" required="no">
+        <cfargument name="ponavljanje_id" type="numeric" required="no">
+
+        <cfset var res        = StructNew()>
+        <cfset var pid        = Val(arguments.patient_id)>
+        <cfset var vid        = Val(arguments.vrsta_id)>
+        <cfset var dt         = "">
+        <cfset var qVrsta     = "">
+        <cfset var qEp        = "">
+        <cfset var epId       = "">
+        <cfset var defUnit    = "">
+        <cfset var needsValue = 0>
+        <cfset var statusVal  = structKeyExists(arguments, "status") ? Val(arguments.status) : 0>
+        <cfset var repeatFlag = structKeyExists(arguments, "ponavljanje") ? Val(arguments.ponavljanje) : 0>
+        <cfset var repeatGroup= structKeyExists(arguments, "ponavljanje_id") ? Val(arguments.ponavljanje_id) : "">
+
+        <cftry>
+            <cfif NOT pid OR NOT vid>
+                <cfthrow message="Nedostaje pacijent_id ili vrsta_id.">
+            </cfif>
+
+            <!-- Tip zadatka -->
+            <cfquery name="qVrsta" datasource="#SESSION.baza_podataka#">
+                SELECT id, d_vrijednost_required, d_jedinica, d_ukljuceno
+                FROM ttd_lista_vrste
+                WHERE id = <cfqueryparam cfsqltype="cf_sql_integer" value="#vid#">
+                LIMIT 1
+            </cfquery>
+
+            <cfif NOT qVrsta.recordCount>
+                <cfthrow message="Vrsta zadatka ne postoji.">
+            </cfif>
+            <cfif qVrsta.d_ukljuceno EQ 0>
+                <cfthrow message="Vrsta zadatka je iskljucena.">
+            </cfif>
+
+            <cfset needsValue = qVrsta.d_vrijednost_required>
+            <cfset defUnit    = Len(Trim(arguments.jedinica)) ? Trim(arguments.jedinica) : qVrsta.d_jedinica>
+
+            <cfif needsValue AND statusVal EQ 1 AND NOT Len(Trim(arguments.vrijednost))>
+                <cfthrow message="Vrijednost je obavezna za ovu vrstu zadatka kada ga oznacis kao izvrsen.">
+            </cfif>
+
+            <!-- Datum zadatka -->
+            <cfif Len(arguments.datum)>
+                <cfset dt = arguments.datum>
+            <cfelse>
+                <cfset dt = now()>
+            </cfif>
+
+            <!-- Aktivna epizoda (ako postoji) -->
+            <cfquery name="qEp" datasource="#SESSION.baza_podataka#">
+                SELECT id
+                FROM epizoda
+                WHERE id_pacijenta = <cfqueryparam cfsqltype="cf_sql_integer" value="#pid#">
+                  AND (datum_do IS NULL OR datum_do > NOW())
+                ORDER BY datum_od DESC, id DESC
+                LIMIT 1
+            </cfquery>
+            <cfif qEp.recordCount>
+                <cfset epId = qEp.id>
+            </cfif>
+
+            <!-- Upis zadatka -->
+            <cfquery name="qIns" datasource="#SESSION.baza_podataka#" result="qInsRes">
+                INSERT INTO ttd_lista_sadrzaj_detalji
+                    (id_pacijenta, id_epizode, id_vrste, id_ref, datum, kolicina, vrijednost, jedinica, id_kreirao, status, status_promjena, ponavljanje, ponavljanje_id, obrisano, napomena)
+                VALUES
+                    (
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#pid#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#epId#" null="#NOT Len(epId)#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#vid#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#arguments.id_ref#" null="#NOT structKeyExists(arguments,'id_ref')#">,
+                        <cfqueryparam cfsqltype="cf_sql_timestamp" value="#dt#">,
+                        <cfqueryparam cfsqltype="cf_sql_decimal" scale="8" value="#arguments.kolicina#" null="#NOT structKeyExists(arguments,'kolicina')#">,
+                        <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#arguments.vrijednost#">,
+                        <cfqueryparam cfsqltype="cf_sql_varchar" value="#defUnit#" null="#NOT Len(defUnit)#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.id_korisnika#" null="#NOT structKeyExists(SESSION,'id_korisnika')#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#statusVal#">,
+                        <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#" null="#statusVal EQ 0#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#repeatFlag#" null="#NOT Len(repeatFlag & '')#">,
+                        <cfqueryparam cfsqltype="cf_sql_integer" value="#repeatGroup#" null="#NOT Len(repeatGroup & '')#">,
+                        0,
+                        <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#arguments.napomena#">
+                    )
+            </cfquery>
+
+            <cfset res.ok        = true>
+            <cfset res.id        = structKeyExists(qInsRes,"GENERATEDKEY") ? qInsRes.GENERATEDKEY : "">
+            <cfset res.id_vrste  = vid>
+            <cfset res.status    = 0>
+            <cfset res.message   = "Zadatak kreiran.">
+
+            <cfreturn res>
+
+            <cfcatch type="any">
+                <cfset res.ok        = false>
+                <cfset res.message   = cfcatch.message>
+                <cfset res.detail    = cfcatch.detail>
+                <cfset res.where     = "vizite.cfc/createPatientTask">
+                <cfset res.sqlState  = structKeyExists(cfcatch, "SQLState") ? cfcatch.SQLState : "">
+                <cfset res.nativeErr = structKeyExists(cfcatch, "NativeErrorCode") ? cfcatch.NativeErrorCode : "">
+                <cfset res.queryErr  = structKeyExists(cfcatch, "queryError") ? cfcatch.queryError : "">
+                <cfreturn res>
+            </cfcatch>
+        </cftry>
+    </cffunction>
+
+    <!-- Azuriraj status/vrijednost zadatka (npr. oznaci kao izvrseno) -->
+    <cffunction name="updatePatientTask" access="remote" returntype="struct" returnformat="json">
+        <cfargument name="task_id"    type="numeric" required="yes">
+        <cfargument name="status"     type="numeric" required="no">
+        <cfargument name="vrijednost" type="string"  required="no">
+        <cfargument name="jedinica"   type="string"  required="no">
+        <cfargument name="kolicina"   type="numeric" required="no">
+        <cfargument name="napomena"   type="string"  required="no">
+
+        <cfset var res        = StructNew()>
+        <cfset var tid        = Val(arguments.task_id)>
+        <cfset var qTask      = "">
+        <cfset var newStatus  = "">
+        <cfset var newValue   = "">
+        <cfset var newUnit    = "">
+        <cfset var newQty     = "">
+        <cfset var newNote    = "">
+
+        <cftry>
+            <cfif NOT tid>
+                <cfthrow message="Nedostaje task_id.">
+            </cfif>
+
+            <!-- Trenutni zadatak + meta iz vrste -->
+            <cfquery name="qTask" datasource="#SESSION.baza_podataka#">
+                SELECT d.id, d.vrijednost, d.jedinica, d.kolicina, d.status, d.napomena,
+                       v.d_vrijednost_required, v.d_jedinica
+                FROM ttd_lista_sadrzaj_detalji d
+                LEFT JOIN ttd_lista_vrste v ON v.id = d.id_vrste
+                WHERE d.id = <cfqueryparam cfsqltype="cf_sql_integer" value="#tid#">
+                  AND d.obrisano = 0
+                LIMIT 1
+            </cfquery>
+
+            <cfif NOT qTask.recordCount>
+                <cfthrow message="Zadatak ne postoji ili je obrisan.">
+            </cfif>
+
+            <cfset newStatus = structKeyExists(arguments,"status") ? Val(arguments.status) : qTask.status>
+            <cfset newValue  = structKeyExists(arguments,"vrijednost") ? arguments.vrijednost : qTask.vrijednost>
+            <cfset newUnit   = structKeyExists(arguments,"jedinica") ? arguments.jedinica : (Len(qTask.jedinica) ? qTask.jedinica : qTask.d_jedinica)>
+            <cfset newQty    = structKeyExists(arguments,"kolicina") ? arguments.kolicina : qTask.kolicina>
+            <cfset newNote   = structKeyExists(arguments,"napomena") ? arguments.napomena : qTask.napomena>
+
+            <cfif qTask.d_vrijednost_required EQ 1 AND newStatus EQ 1 AND NOT Len(Trim(newValue))>
+                <cfthrow message="Vrijednost je obavezna kada oznacavas zadatak kao izvrsen.">
+            </cfif>
+
+            <cfquery name="qUpd" datasource="#SESSION.baza_podataka#">
+                UPDATE ttd_lista_sadrzaj_detalji
+                SET
+                    status          = <cfqueryparam cfsqltype="cf_sql_integer" value="#newStatus#">,
+                    status_promjena = <cfqueryparam cfsqltype="cf_sql_timestamp" value="#now()#">,
+                    vrijednost      = <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#newValue#">,
+                    jedinica        = <cfqueryparam cfsqltype="cf_sql_varchar" value="#newUnit#" null="#NOT Len(newUnit)#">,
+                    kolicina        = <cfqueryparam cfsqltype="cf_sql_decimal" scale="8" value="#newQty#" null="#NOT Len(newQty & '')#">,
+                    napomena        = <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#newNote#" null="#NOT Len(newNote & '')#">,
+                    id_izmjenio     = <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.id_korisnika#" null="#NOT structKeyExists(SESSION,'id_korisnika')#">
+                WHERE id = <cfqueryparam cfsqltype="cf_sql_integer" value="#tid#">
+            </cfquery>
+
+            <cfset res.ok      = true>
+            <cfset res.id      = tid>
+            <cfset res.status  = newStatus>
+            <cfset res.message = "Zadatak azuriran.">
+            <cfreturn res>
+
+            <cfcatch type="any">
+                <cfset res.ok        = false>
+                <cfset res.message   = cfcatch.message>
+                <cfset res.detail    = cfcatch.detail>
+                <cfset res.where     = "vizite.cfc/updatePatientTask">
+                <cfset res.sqlState  = structKeyExists(cfcatch, "SQLState") ? cfcatch.SQLState : "">
+                <cfset res.nativeErr = structKeyExists(cfcatch, "NativeErrorCode") ? cfcatch.NativeErrorCode : "">
+                <cfset res.queryErr  = structKeyExists(cfcatch, "queryError") ? cfcatch.queryError : "">
+                <cfreturn res>
+            </cfcatch>
+        </cftry>
+    </cffunction>
 
     <!-- (Opcionalno) Zadaci po opsegu datuma – za eventualne izvještaje/istoriju u UI -->
     <cffunction name="getPatientTasksRange" access="remote" returntype="array" returnformat="json">

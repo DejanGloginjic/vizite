@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Tabs, Select } from 'antd';
+import { Tabs, Select, message } from 'antd';
 import dayjs from 'dayjs';
 
 import styles from './PatientVisitPage.module.css';
@@ -10,11 +10,12 @@ import {
   usePatientDocumentsQuery,
   usePatientEpisodesQuery, // NOVO: epizode pacijenta
 } from '../../entities/patient/queries';
-import { usePatientTasksQuery } from '../../entities/task/queries';
+import { usePatientTasksQuery, useUpdateTaskMutation } from '../../entities/task/queries';
 import { toISODate } from '../../shared/lib/date';
 import PatientHeader from '../../widgets/PatientHeader/PatientHeader';
 import PatientTasks from '../../widgets/PatientTasks/PatientTasks';
-import { ENV } from '../../shared/config/env'; // ⬅️ NOVO
+import { ENV } from '../../shared/config/env';
+import TaskCreateModal from '../../features/task-create/TaskCreateModal'; // ⬅️ NOVO
 
 export default function PatientVisitPage() {
   const { id } = useParams();
@@ -23,6 +24,7 @@ export default function PatientVisitPage() {
   const date = sp.get('date') || today;
 
   const [episodeFilter, setEpisodeFilter] = useState(''); // '' = sve
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
 
   // === viewer state (fullscreen prikaz dokumenta) ===
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -44,6 +46,7 @@ export default function PatientVisitPage() {
     isError: tasksError,
     error: tasksErr,
   } = usePatientTasksQuery(id, date);
+  const { mutateAsync: updateTask } = useUpdateTaskMutation(id, date);
 
   const {
     data: rawDocs = [],
@@ -61,29 +64,70 @@ export default function PatientVisitPage() {
   };
 
   const handleSaveTasks = useCallback(
-    ({ doneTasks = [], note }) => {
-      console.group('Završeni zadaci');
-      console.log('Pacijent ID:', id, 'Datum:', date);
-      if (doneTasks.length) {
-        console.table(
-          doneTasks.map((t) => ({
-            id: t.id ?? t.id_vrste ?? '',
-            naziv: t.naziv ?? t.vrsta ?? 'Zadatak',
-            vrijednost: t.d_vrijednost ?? t.vrijednost ?? t.kolicina ?? '',
-            jedinica: t.d_jedinica ?? t.jedinica ?? '',
-            napomena: t.napomena ?? '',
-            vrijeme: t.datum ?? '',
-          }))
-        );
-      } else {
-        console.log('Nema označenih zadataka.');
+    async ({ doneTasks = [], measurements = [] }) => {
+      if (!doneTasks.length) return;
+
+      const measById = new Map();
+      (measurements || []).forEach((m) => {
+        if (m?.id) measById.set(String(m.id), m);
+      });
+
+      try {
+        const updates = doneTasks.map((task) => {
+          if (!task?.id) {
+            throw new Error('Zadatak nema ID (task_id), ne mogu ga označiti.');
+          }
+          const typeId = Number(task.id_vrste);
+          const requiresVal = Number(task.d_vrijednost_required) === 1;
+          const m = measById.get(String(task.id));
+
+          let vrijednost = task.vrijednost || "";
+          let jedinica = task.d_jedinica || task.jedinica || "";
+          let kolicina = task.kolicina;
+
+          if (typeId === 6 && m && m.value && m.value2) {
+            vrijednost = `${m.value}/${m.value2}`;
+            jedinica = m.unit || jedinica || "mmHg";
+          } else if (m && m.value) {
+            vrijednost = m.value;
+            if (m.unit) jedinica = m.unit;
+          }
+
+          if (requiresVal && !String(vrijednost || "").trim()) {
+            throw new Error(
+              `Zadatak "${task.naziv || task.vrsta || ""}" zahtijeva unos vrijednosti.`
+            );
+          }
+
+          const parsedQty = (() => {
+            const raw = kolicina;
+            if (raw === undefined || raw === null) return null;
+            const s = String(raw).trim();
+            if (!s.length) return null;
+            const n = Number(s.replace(",", "."));
+            return Number.isNaN(n) ? null : n;
+          })();
+
+          const payload = {
+            task_id: task.id,
+            status: 1,
+            vrijednost,
+            jedinica,
+          };
+          if (Number.isFinite(parsedQty)) {
+            payload.kolicina = parsedQty;
+          }
+
+          return updateTask(payload);
+        });
+
+        await Promise.all(updates);
+        message.success('Zadaci su označeni kao izvršeni.');
+      } catch (err) {
+        message.error(err?.message || 'Greška pri ažuriranju zadataka.');
       }
-      if (note?.trim()) {
-        console.log('Napomena:', note.trim());
-      }
-      console.groupEnd();
     },
-    [date, id]
+    [updateTask]
   );
 
   // === priprema dokumenata ===
@@ -295,7 +339,16 @@ export default function PatientVisitPage() {
         <div>
           {/* Header reda: "Zadaci" + datum u istom redu */}
           <div className={styles.tasksHeaderRow}>
-            <h3 className={styles.h3}>Zadaci</h3>
+            <div className={styles.tasksTitleRow}>
+              <h3 className={styles.h3}>Zadaci</h3>
+              <button
+                type="button"
+                className={styles.addBtn}
+                onClick={() => setTaskModalOpen(true)}
+              >
+                Dodaj
+              </button>
+            </div>
 
             <div className={styles.dateRow}>
               <input
@@ -422,6 +475,13 @@ export default function PatientVisitPage() {
         defaultActiveKey="tasks"
         items={tabItems}
         destroyInactiveTabPane={false}
+      />
+
+      <TaskCreateModal
+        open={taskModalOpen}
+        onClose={() => setTaskModalOpen(false)}
+        patientId={id}
+        defaultDate={date}
       />
 
       {/* === FULLSCREEN VIEWER ZA DOKUMENTE === */}

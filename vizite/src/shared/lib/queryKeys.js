@@ -5,6 +5,8 @@ export const QK = {
   patient: (id) => ['patient', id],
   tasks: (id, date) => ['tasks', { id, date: date || 'today' }],
   session: ['session'],
-  // 🔹 NOVO:
+  // NOVO
   patientDocuments: (id) => ['patientDocuments', id],
+  taskTypes: ['taskTypes'],
+  products: (term = '') => ['products', term || 'all'],
 };

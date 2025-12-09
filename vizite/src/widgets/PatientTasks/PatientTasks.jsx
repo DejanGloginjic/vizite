@@ -15,6 +15,7 @@ export default function PatientTasks({ tasks = [], onSave }) {
   const items = useMemo(() => tasks || [], [tasks]);
 
   const [checkedMap, setCheckedMap] = useState({});
+  const [measureMap, setMeasureMap] = useState({});
   const [note, setNote] = useState("");
 
   const isDone = (t) =>
@@ -30,21 +31,112 @@ export default function PatientTasks({ tasks = [], onSave }) {
     return m ? m[1] : "";
   };
   const buildValueText = (t) => {
-    const v =
-      t.d_vrijednost ?? t.vrijednost ?? (t.kolicina != null ? t.kolicina : "");
-    const u = t.d_jedinica ?? t.jedinica ?? "";
-    if (v === "" || v === null || v === undefined) return null;
-    return `${v}${u ? ` ${u}` : ""}`;
+    const name = t.d_vrijednost ?? t.vrijednost ?? "";
+    const unit = t.d_jedinica ?? t.jedinica ?? "";
+    const qty = t.kolicina;
+    const isTherapy = Number(t.id_vrste) === 3;
+
+    if (isTherapy) {
+      const parts = [];
+      if (name) parts.push(name);
+      if (qty !== undefined && qty !== null && String(qty).trim() !== "") {
+        const qtyStr = String(qty);
+        parts.push(`Doza: ${qtyStr}${unit ? ` ${unit}` : ""}`);
+      }
+      if (!parts.length) return null;
+      return parts.join(" · ");
+    }
+
+    const val = name || (qty !== null && qty !== undefined ? qty : "");
+    if (val === "" || val === null || val === undefined) return null;
+    return `${val}${unit ? ` ${unit}` : ""}`;
+  };
+
+  const needsMeasurement = (t) => {
+    const typeId = Number(t.id_vrste);
+    return (
+      typeId === 5 || // temperatura
+      typeId === 6 || // pritisak
+      typeId === 7 || // puls
+      Number(t.d_vrijednost_required) === 1
+    );
+  };
+
+  const renderMeasurement = (t, key) => {
+    const typeId = Number(t.id_vrste);
+    if (isDone(t) || !checkedMap[key] || !needsMeasurement(t)) return null;
+    const unit = t.d_jedinica ?? t.jedinica ?? "";
+    const m = measureMap[key] || { v1: "", v2: "" };
+    const setVal = (field, v) =>
+      setMeasureMap((prev) => ({
+        ...prev,
+        [key]: { ...(prev[key] || {}), [field]: v },
+      }));
+
+    if (typeId === 6) {
+      // pritisak: gornji/donji
+      return (
+        <div className={styles.measureBox}>
+          <div className={styles.measureLabel}>Izmjerena vrijednost</div>
+          <div className={styles.pressureInputs}>
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="120"
+              value={m.v1}
+              onChange={(e) => setVal("v1", e.target.value)}
+              className={styles.measureInput}
+            />
+            <span className={styles.measureUnit}>/</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="80"
+              value={m.v2}
+              onChange={(e) => setVal("v2", e.target.value)}
+              className={styles.measureInput}
+            />
+            <span className={styles.measureUnit}>{unit || "mmHg"}</span>
+          </div>
+        </div>
+      );
+    }
+
+    const placeholderMap = {
+      5: "36.6",
+      7: "72",
+      3: "Doza",
+    };
+
+    return (
+      <div className={styles.measureBox}>
+        <div className={styles.measureLabel}>Izmjerena vrijednost</div>
+        <div className={styles.measureInputs}>
+          <input
+            type="number"
+            inputMode="decimal"
+            placeholder={placeholderMap[typeId] || "Vrijednost"}
+            value={m.v1}
+            onChange={(e) => setVal("v1", e.target.value)}
+            className={styles.measureInput}
+          />
+          {unit ? <span className={styles.measureUnit}>{unit}</span> : null}
+        </div>
+      </div>
+    );
   };
 
   // reset selection na promjenu tasks
   useEffect(() => {
     const init = {};
+    const initMeasure = {};
     items.forEach((t, i) => {
       const key = taskKey(t, i);
       if (!isDone(t)) init[key] = false;
+      initMeasure[key] = { v1: "", v2: "" };
     });
     setCheckedMap(init);
+    setMeasureMap(initMeasure);
   }, [items]);
 
   const toggle = (key) => setCheckedMap((m) => ({ ...m, [key]: !m[key] }));
@@ -60,7 +152,18 @@ export default function PatientTasks({ tasks = [], onSave }) {
     const completed = keyedItems.filter(([key]) => checkedMap[key]);
     const doneIds = completed.map(([key]) => key);
     const doneTasks = completed.map(([, task]) => task);
-    onSave?.({ doneIds, doneTasks, note });
+    const measurements = completed.map(([key, task]) => {
+      const m = measureMap[key] || {};
+      return {
+        task,
+        id: task.id,
+        id_vrste: task.id_vrste,
+        value: m.v1 ?? "",
+        value2: m.v2 ?? "",
+        unit: task.d_jedinica ?? task.jedinica ?? "",
+      };
+    });
+    onSave?.({ doneIds, doneTasks, note, measurements });
   };
 
   return (
@@ -130,6 +233,8 @@ export default function PatientTasks({ tasks = [], onSave }) {
                       </span>
                     ) : null}
                   </div>
+
+                  {renderMeasurement(t, key)}
                 </div>
 
                 <div className={styles.right}>
