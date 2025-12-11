@@ -7,6 +7,7 @@ import styles from "./TaskCreateModal.module.css";
 import {
   useCreateTaskMutation,
   useTaskTypesQuery,
+  useDietsQuery,
 } from "../../entities/task/queries";
 import { useProductsQuery } from "../../entities/product/queries";
 
@@ -22,18 +23,19 @@ const TYPE_IDS = {
 };
 
 const MEAL_OPTIONS = [
-  { value: "dorucak", label: "Doručak" },
-  { value: "rucak", label: "Ručak" },
-  { value: "vecera", label: "Večera" },
+  { value: "dorucak", label: "DORUČAK" },
+  { value: "rucak", label: "RUČAK" },
+  { value: "vecera", label: "VEČERA" },
 ];
 
 const DIET_OPTIONS = [
-  "Standard",
-  "Laka",
-  "Dijabetička",
-  "Bez glutena",
-  "Bez laktoze",
-  "Po preporuci ljekara",
+  { value: "", label: "... IZABERITE DIJETU" },
+  { value: "Standard", label: "Standard" },
+  { value: "Laka", label: "Laka" },
+  { value: "Dijabetička", label: "Dijabetička" },
+  { value: "Bez glutena", label: "Bez glutena" },
+  { value: "Bez laktoze", label: "Bez laktoze" },
+  { value: "Po preporuci ljekara", label: "Po preporuci ljekara" },
 ];
 
 const REPEAT_OPTIONS = ["1", "2", "3", "4", "5", "6", "multi"];
@@ -57,17 +59,20 @@ export default function TaskCreateModal({
 
   // vrijednosti po vrsti
   const [therapyName, setTherapyName] = useState("");
-  const [therapyDose, setTherapyDose] = useState("");
+  const [therapyDose, setTherapyDose] = useState("1");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productTerm, setProductTerm] = useState("");
   const [productSheetOpen, setProductSheetOpen] = useState(false);
+  const [dietSheetOpen, setDietSheetOpen] = useState(false);
 
   const [tempValue, setTempValue] = useState("");
   const [pressureSys, setPressureSys] = useState("");
   const [pressureDia, setPressureDia] = useState("");
   const [pulseValue, setPulseValue] = useState("");
 
-  const [dietType, setDietType] = useState(DIET_OPTIONS[0]);
+  const [dietId, setDietId] = useState("");
+  const [dietType, setDietType] = useState("");
+  const [dietSearch, setDietSearch] = useState("");
   const [meal, setMeal] = useState(MEAL_OPTIONS[0].value);
 
   const [taskText, setTaskText] = useState("");
@@ -76,6 +81,7 @@ export default function TaskCreateModal({
   const [markDone, setMarkDone] = useState(false);
 
   const { data: types = [], isLoading: typesLoading } = useTaskTypesQuery();
+  const { data: diets = [], isLoading: dietsLoading } = useDietsQuery();
   const { mutateAsync: createTask, isPending } = useCreateTaskMutation(
     patientId,
     defaultDate
@@ -88,11 +94,13 @@ export default function TaskCreateModal({
     return () => clearTimeout(t);
   }, [productTerm]);
 
+  const shouldLoadProducts =
+    productSheetOpen || productTerm.trim().length >= 2 || therapyName.trim().length >= 2;
   const {
     data: products = [],
     isFetching: productsLoading,
     refetch: refetchProducts,
-  } = useProductsQuery(debouncedTerm, productSheetOpen);
+  } = useProductsQuery(debouncedTerm, shouldLoadProducts);
 
   // reset kada se modal otvori
   useEffect(() => {
@@ -104,13 +112,16 @@ export default function TaskCreateModal({
     setRepeatEveryHours("6");
     setNote("");
     setTherapyName("");
-    setTherapyDose("");
+    setTherapyDose("1");
     setSelectedProduct(null);
     setTempValue("");
     setPressureSys("");
     setPressureDia("");
     setPulseValue("");
-    setDietType(DIET_OPTIONS[0]);
+    setDietId("");
+    setDietType("");
+    setDietSearch("");
+    setDietSheetOpen(false);
     setMeal(MEAL_OPTIONS[0].value);
     setTaskText("");
     setObservationText("");
@@ -152,13 +163,14 @@ export default function TaskCreateModal({
   }, [typeId]);
 
   const repeatCount = useMemo(() => {
+    if (currentType?.id === TYPE_IDS.DIET) return 1;
     if (repeatChoice === "multi") {
       const n = Number(customRepeat || 0);
       return n > 0 ? n : 1;
     }
     const n = Number(repeatChoice || 1);
     return n > 0 ? n : 1;
-  }, [customRepeat, repeatChoice]);
+  }, [customRepeat, repeatChoice, currentType]);
 
   const occurrenceList = useMemo(() => {
     if (!startAt) return [];
@@ -177,9 +189,46 @@ export default function TaskCreateModal({
   }, [repeatCount, repeatEveryHours, startAt]);
 
   const formatOccurrence = (d) =>
-    dayjs(d).isValid() ? dayjs(d).format("DD.MM. HH:mm") : "";
+    dayjs(d).isValid()
+      ? currentType?.id === TYPE_IDS.DIET
+        ? dayjs(d).format("DD.MM.YYYY")
+        : dayjs(d).format("DD.MM. HH:mm")
+      : "";
 
   const typeLabel = (t) => t?.naziv || t?.opis || "Vrsta";
+  const isDiet = currentType?.id === TYPE_IDS.DIET;
+
+  const dietOptions = useMemo(() => {
+    const opts = [...DIET_OPTIONS];
+    if (Array.isArray(diets)) {
+      diets.forEach((d) => {
+        const label =
+          d.dijeta_naz ||
+          d.dijeta_skraceni_naz ||
+          d.dijeta_sif ||
+          `Dijeta #${d.dijeta_id}`;
+        opts.push({
+          value: String(d.dijeta_id),
+          label,
+        });
+      });
+    }
+    return opts;
+  }, [diets]);
+
+  const filteredDietOptions = useMemo(() => {
+    if (!dietSearch.trim()) return dietOptions;
+    const term = dietSearch.toLowerCase();
+    return dietOptions.filter((o) => (o.label || "").toLowerCase().includes(term));
+  }, [dietOptions, dietSearch]);
+
+  const selectDiet = (opt) => {
+    if (!opt) return;
+    setDietId(String(opt.value));
+    setDietType(opt.label || "");
+    setDietSearch(opt.label || "");
+    setDietSheetOpen(false);
+  };
 
   const canSubmit =
     !!patientId &&
@@ -275,16 +324,19 @@ export default function TaskCreateModal({
         });
       });
     } else if (currentType.id === TYPE_IDS.DIET) {
+      if (!dietId) throw new Error("Odaberite dijetu.");
       const mealLabel =
-        MEAL_OPTIONS.find((m) => m.value === meal)?.label || "Obrok";
+        MEAL_OPTIONS.find((m) => m.value === meal)?.label || "OBROK";
       const diet = dietType || "Dijeta";
-      occurrenceList.forEach((dt) =>
-        pushPayload(dt, {
-          vrijednost: `${diet} · ${mealLabel}`,
+      occurrenceList.forEach((dt) => {
+        const dateOnly = dayjs(dt).startOf("day");
+        pushPayload(dateOnly, {
+          vrijednost: `${diet} - ${mealLabel}`,
+          id_ref: Number(dietId),
           napomena: note.trim(),
           status: 0,
-        })
-      );
+        });
+      });
     } else if (currentType.id === TYPE_IDS.TASK) {
       if (!taskText.trim()) throw new Error("Opis zadatka je obavezan.");
       occurrenceList.forEach((dt) =>
@@ -372,9 +424,6 @@ export default function TaskCreateModal({
                     onClick={() => setTypeId(t.id)}
                   >
                     <span className={styles.typeName}>{typeLabel(t)}</span>
-                    {t.d_jedinica ? (
-                      <span className={styles.typeMeta}>{t.d_jedinica}</span>
-                    ) : null}
                   </button>
                 );
               })}
@@ -389,73 +438,81 @@ export default function TaskCreateModal({
               </div>
             </div>
 
-            <label className={styles.fieldLabel}>Datum i vrijeme početka</label>
+            <label className={styles.fieldLabel}>
+              {isDiet ? "Datum" : "Datum i vrijeme početka"}
+            </label>
             <input
               className={styles.input}
-              type="datetime-local"
-              value={startAt}
-              onChange={(e) => setStartAt(e.target.value)}
+              type={isDiet ? "date" : "datetime-local"}
+              value={isDiet ? startAt?.slice(0, 10) : startAt}
+              onChange={(e) =>
+                isDiet
+                  ? setStartAt(e.target.value ? `${e.target.value}T00:00` : "")
+                  : setStartAt(e.target.value)
+              }
               required
             />
 
-            <div className={styles.repeatRow}>
-              <div className={styles.repeatGroup}>
-                <p className={styles.fieldLabel}>Broj ponavljanja</p>
-                <div className={styles.chips}>
-                  {REPEAT_OPTIONS.map((opt) => (
-                    <button
-                      type="button"
-                      key={opt}
-                      className={`${styles.chip} ${
-                        repeatChoice === opt ? styles.chipActive : ""
-                      }`}
-                      onClick={() => setRepeatChoice(opt)}
-                    >
-                      {opt === "multi" ? "Više termina" : `${opt}x`}
-                    </button>
-                  ))}
+            {!isDiet ? (
+              <div className={styles.repeatRow}>
+                <div className={styles.repeatGroup}>
+                  <p className={styles.fieldLabel}>Broj ponavljanja</p>
+                  <div className={styles.chips}>
+                    {REPEAT_OPTIONS.map((opt) => (
+                      <button
+                        type="button"
+                        key={opt}
+                        className={`${styles.chip} ${
+                          repeatChoice === opt ? styles.chipActive : ""
+                        }`}
+                        onClick={() => setRepeatChoice(opt)}
+                      >
+                        {opt === "multi" ? "Više termina" : `${opt}x`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {repeatChoice === "multi" ? (
+                  <div className={styles.inlineField}>
+                    <label className={styles.fieldLabel}>Ukupno termina</label>
+                    <input
+                      className={styles.input}
+                      type="number"
+                      min="2"
+                      value={customRepeat}
+                      onChange={(e) => setCustomRepeat(e.target.value)}
+                    />
+                  </div>
+                ) : null}
+
+                {repeatCount > 1 ? (
+                  <div className={styles.inlineField}>
+                    <label className={styles.fieldLabel}>
+                      Na svako koliko sati
+                    </label>
+                    <input
+                      className={styles.input}
+                      type="number"
+                      min="1"
+                      value={repeatEveryHours}
+                      onChange={(e) => setRepeatEveryHours(e.target.value)}
+                    />
+                  </div>
+                ) : null}
+
+                <div className={styles.schedulePreview}>
+                  <p className={styles.muted}>Planirana vremena</p>
+                  <div className={styles.badgeRow}>
+                    {occurrenceList.map((dt, idx) => (
+                      <span key={idx} className={styles.badge}>
+                        {formatOccurrence(dt)}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              {repeatChoice === "multi" ? (
-                <div className={styles.inlineField}>
-                  <label className={styles.fieldLabel}>Ukupno termina</label>
-                  <input
-                    className={styles.input}
-                    type="number"
-                    min="2"
-                    value={customRepeat}
-                    onChange={(e) => setCustomRepeat(e.target.value)}
-                  />
-                </div>
-              ) : null}
-
-              {repeatCount > 1 ? (
-                <div className={styles.inlineField}>
-                  <label className={styles.fieldLabel}>
-                    Na svako koliko sati
-                  </label>
-                  <input
-                    className={styles.input}
-                    type="number"
-                    min="1"
-                    value={repeatEveryHours}
-                    onChange={(e) => setRepeatEveryHours(e.target.value)}
-                  />
-                </div>
-              ) : null}
-
-              <div className={styles.schedulePreview}>
-                <p className={styles.muted}>Planirana vremena</p>
-                <div className={styles.badgeRow}>
-                  {occurrenceList.map((dt, idx) => (
-                    <span key={idx} className={styles.badge}>
-                      {formatOccurrence(dt)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+            ) : null}
           </section>
 
           {/* Dinamički dio po vrsti */}
@@ -481,11 +538,35 @@ export default function TaskCreateModal({
               <label className={styles.fieldLabel}>Naziv lijeka</label>
               <input
                 className={styles.input}
+                list="productOptions"
                 value={therapyName}
-                onChange={(e) => setTherapyName(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTherapyName(val);
+                  setProductTerm(val);
+                  if (val && products.length) {
+                    const match = products.find(
+                      (p) => (p.ime || "").toLowerCase() === val.toLowerCase()
+                    );
+                    if (match) {
+                      handleSelectProduct(match);
+                    } else {
+                      setSelectedProduct(null);
+                    }
+                  } else {
+                    setSelectedProduct(null);
+                  }
+                }}
                 placeholder="npr. Bensedin 5mg"
                 required
               />
+              {therapyName.trim().length >= 2 && !!products.length ? (
+                <datalist id="productOptions">
+                  {products.map((p) => (
+                    <option key={p.id} value={p.ime || ""} />
+                  ))}
+                </datalist>
+              ) : null}
 
               <label className={styles.fieldLabel}>
                 Količina / doza (opciono)
@@ -640,38 +721,66 @@ export default function TaskCreateModal({
               <div className={styles.sectionHead}>
                 <div>
                   <p className={styles.sectionOver}>Dijeta</p>
-                  <h3 className={styles.sectionTitle}>Obrok</h3>
+                  <h3 className={styles.sectionTitle}>Naziv i obrok</h3>
                 </div>
-              </div>
-              <label className={styles.fieldLabel}>Tip dijete</label>
-              <div className={styles.selectLike}>
-                <select
-                  className={styles.select}
-                  value={dietType}
-                  onChange={(e) => setDietType(e.target.value)}
+                <button
+                  type="button"
+                  className={styles.outlineBtn}
+                  onClick={() => setDietSheetOpen(true)}
                 >
-                  {DIET_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                  Lista dijeta
+                </button>
+              </div>
+              <label className={styles.fieldLabel}>Naziv dijete</label>
+              <div className={styles.inlineField}>
+                <div className={styles.inlineGrow}>
+                  <input
+                    className={styles.input}
+                    type="text"
+                    placeholder="Pretraži dijetu"
+                    value={dietSearch}
+                    list="dietOptionsList"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setDietSearch(val);
+                      const match = val
+                        ? filteredDietOptions.find(
+                            (o) => (o.label || "").toLowerCase() === val.toLowerCase()
+                          )
+                        : null;
+                      if (match) {
+                        selectDiet(match);
+                      } else {
+                        setDietId("");
+                        setDietType("");
+                      }
+                    }}
+                  />
+                {!!dietSearch.trim().length && (
+                  <datalist id="dietOptionsList" style={{ width: "100%" }}>
+                    {filteredDietOptions
+                      .filter((o) => o.value)
+                      .map((opt) => (
+                        <option key={opt.value} value={opt.label} />
+                      ))}
+                  </datalist>
+                )}
+                </div>
               </div>
 
               <label className={styles.fieldLabel}>Obrok</label>
-              <div className={styles.chips}>
-                {MEAL_OPTIONS.map((m) => (
-                  <button
-                    type="button"
-                    key={m.value}
-                    className={`${styles.chip} ${
-                      meal === m.value ? styles.chipActive : ""
-                    }`}
-                    onClick={() => setMeal(m.value)}
-                  >
-                    {m.label}
-                  </button>
-                ))}
+              <div className={styles.selectLike}>
+                <select
+                  className={styles.select}
+                  value={meal}
+                  onChange={(e) => setMeal(e.target.value)}
+                >
+                  {MEAL_OPTIONS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </section>
           )}
@@ -781,6 +890,48 @@ export default function TaskCreateModal({
                     </div>
                   </button>
                 ))
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {dietSheetOpen ? (
+          <div className={styles.sheet}>
+            <div className={styles.sheetHeader}>
+              <h4 className={styles.sheetTitle}>Dijete</h4>
+              <button
+                type="button"
+                className={styles.closeBtn}
+                onClick={() => setDietSheetOpen(false)}
+                aria-label="Zatvori listu dijeta"
+              >
+                ×
+              </button>
+            </div>
+            <input
+              className={styles.input}
+              placeholder="Traži dijetu"
+              value={dietSearch}
+              onChange={(e) => setDietSearch(e.target.value)}
+            />
+            <div className={styles.productsList}>
+              {dietsLoading ? (
+                <div className={styles.muted}>Pretražujem…</div>
+              ) : !filteredDietOptions.filter((o) => o.value).length ? (
+                <div className={styles.muted}>Nema rezultata.</div>
+              ) : (
+                filteredDietOptions
+                  .filter((o) => o.value)
+                  .map((opt) => (
+                    <button
+                      type="button"
+                      key={opt.value}
+                      className={styles.productCard}
+                      onClick={() => selectDiet(opt)}
+                    >
+                      <div className={styles.productTitle}>{opt.label}</div>
+                    </button>
+                  ))
               )}
             </div>
           </div>

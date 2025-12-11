@@ -23,7 +23,7 @@
 }
 
 .header {
-  padding: 16px 18px 0px;
+  padding: 16px 18px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;

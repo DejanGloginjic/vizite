@@ -3,6 +3,7 @@ import {
   createPatientTask,
   getPatientTasks,
   getTaskTypes,
+  getDiets,
   updatePatientTask,
   clonePatientTasks,
 } from "./api";
@@ -21,6 +22,13 @@ export const useTaskTypesQuery = () =>
     queryKey: QK.taskTypes,
     queryFn: () => getTaskTypes(),
     staleTime: 5 * 60_000,
+  });
+
+export const useDietsQuery = () =>
+  useQuery({
+    queryKey: [...QK.taskTypes, "diets"],
+    queryFn: () => getDiets(),
+    staleTime: 10 * 60_000,
   });
 
 export const useCreateTaskMutation = (patientId, date) => {

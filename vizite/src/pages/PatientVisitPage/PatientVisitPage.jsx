@@ -10,7 +10,10 @@ import {
   usePatientDocumentsQuery,
   usePatientEpisodesQuery, // NOVO: epizode pacijenta
 } from '../../entities/patient/queries';
-import { usePatientTasksQuery, useUpdateTaskMutation } from '../../entities/task/queries';
+import {
+  usePatientTasksQuery,
+  useUpdateTaskMutation,
+} from '../../entities/task/queries';
 import { toISODate } from '../../shared/lib/date';
 import PatientHeader from '../../widgets/PatientHeader/PatientHeader';
 import PatientTasks from '../../widgets/PatientTasks/PatientTasks';
@@ -75,41 +78,47 @@ export default function PatientVisitPage() {
       });
 
       try {
-        const updates = doneTasks.map((task) => {
+        const ops = doneTasks.map((task) => {
           if (!task?.id) {
-            throw new Error('Zadatak nema ID (task_id), ne mogu ga označiti.');
+            throw new Error('Zadatak nema ID (task_id), ne mogu ga oznaciti.');
           }
           const typeId = Number(task.id_vrste);
           const requiresVal = Number(task.d_vrijednost_required) === 1;
           const m = measById.get(String(task.id));
 
-          let vrijednost = task.vrijednost || "";
-          let jedinica = task.d_jedinica || task.jedinica || "";
+          let vrijednost = task.vrijednost || '';
+          let jedinica = task.d_jedinica || task.jedinica || '';
           let kolicina = task.kolicina;
 
-          if (typeId === 6 && m && m.value && m.value2) {
-            vrijednost = `${m.value}/${m.value2}`;
-            jedinica = m.unit || jedinica || "mmHg";
-          } else if (m && m.value) {
+          if (typeId === 6) {
+            const v1 = m?.value || '';
+            const v2 = m?.value2 || '';
+            if (!v1 || !v2) {
+              throw new Error('Unesite sistolni i dijastolni pritisak.');
+            }
+            vrijednost = `${v1}/${v2}`;
+            jedinica = m?.unit || jedinica || 'mmHg';
+          } else if (typeId !== 3 && m && m.value) {
             vrijednost = m.value;
             if (m.unit) jedinica = m.unit;
           }
 
-          if (requiresVal && !String(vrijednost || "").trim()) {
+          if (requiresVal && !String(vrijednost || '').trim()) {
             throw new Error(
-              `Zadatak "${task.naziv || task.vrsta || ""}" zahtijeva unos vrijednosti.`
+              `Zadatak "${task.naziv || task.vrsta || ''}" zahtijeva unos vrijednosti.`
             );
           }
 
+          if (typeId === 3 && m && m.kolicina !== undefined) {
+            kolicina = m.kolicina;
+          }
+
           const parsedQty = (() => {
-            const raw =
-              typeId === 3 && m?.kolicina !== undefined && m?.kolicina !== null
-                ? m.kolicina
-                : kolicina;
+            const raw = kolicina;
             if (raw === undefined || raw === null) return null;
             const s = String(raw).trim();
             if (!s.length) return null;
-            const n = Number(s.replace(",", "."));
+            const n = Number(s.replace(',', '.'));
             return Number.isNaN(n) ? null : n;
           })();
 
@@ -126,10 +135,10 @@ export default function PatientVisitPage() {
           return updateTask(payload);
         });
 
-        await Promise.all(updates);
-        message.success('Zadaci su označeni kao izvršeni.');
+        await Promise.all(ops);
+        message.success('Zadaci su oznaceni kao izvrseni.');
       } catch (err) {
-        message.error(err?.message || 'Greška pri ažuriranju zadataka.');
+        message.error(err?.message || 'Greska pri azuriranju zadataka.');
       }
     },
     [updateTask]

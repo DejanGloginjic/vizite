@@ -345,15 +345,17 @@
 
 /* header iznad iframe-a – malo viši, svijetao, uz crveni akcenat */
 .docViewerHeader {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   padding: 10px 14px; /* viši header radi tap target-a */
   background: #ffffff;
   border-bottom: 1px solid #fecaca;
   color: #111827;
   min-height: 64px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* lijevo – datum dokumenta */
@@ -369,6 +371,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  justify-content: flex-end;
 }
 
 .docViewerNavBtn,
@@ -443,14 +446,22 @@
     max-width: 100%;
   }
 
-  /* header ostaje jedan red, samo malo kompaktniji */
   .docViewerHeader {
-    padding: 6px 8px;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    align-items: flex-start;
+    row-gap: 6px;
+    padding: 8px;
+  }
+
+  .docViewerNav {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .docViewerNavBtn,
   .docViewerCloseBtn {
-    padding: 3px 8px;
+    padding: 4px 9px;
     font-size: 11px;
   }
 }

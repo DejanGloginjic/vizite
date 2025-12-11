@@ -408,7 +408,6 @@
 				<!--- razduzuje proizvod --->
 				<cfif ((#id_vrste# eq 3) OR (#id_vrste# eq 10))>
 					<cfif (#razduzenje# eq 1)>
-						<!---
 						<cfinvoke component="#avar_relfolder#.rpc.main" method="izdaj_proizvod" returnvariable="izdaj_proizvod_odgovor" timeout="30">
 							<cfinvokeargument name="skladiste_grupa" value="#SESSION.organizacija#">
 							<cfinvokeargument name="skladiste" value="#SESSION.organizacija_odjel#">
@@ -422,7 +421,6 @@
 							<cfinvokeargument name="vrsta_transakcije" value="1">
 							<cfinvokeargument name="napomena" value="">
 						</cfinvoke>
-						--->
 					</cfif>
 				</cfif>
 

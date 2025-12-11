@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import dayjs from 'dayjs';
 import styles from './PatientTasks.module.css';
 
 /**
@@ -12,8 +13,6 @@ import styles from './PatientTasks.module.css';
  * - onSave?: (payload: { doneIds: string[], note: string }) => void
  */
 export default function PatientTasks({ tasks = [], onSave }) {
-  const items = useMemo(() => tasks || [], [tasks]);
-
   const [checkedMap, setCheckedMap] = useState({});
   const [measureMap, setMeasureMap] = useState({});
   const [note, setNote] = useState('');
@@ -21,6 +20,24 @@ export default function PatientTasks({ tasks = [], onSave }) {
   const isDone = (t) => Number(t.status) === 1 || String(t.status) === '1' || t.uradjen === 1;
 
   const taskKey = (t, i) => String(t.id ?? `${t.id_vrste ?? 'vrsta'}_${t.datum ?? ''}_${i}`);
+
+  const parseDateTime = (value) => {
+    if (!value) return null;
+    const direct = dayjs(value);
+    if (direct.isValid()) return direct;
+    const normalized = dayjs(String(value).replace(' ', 'T'));
+    return normalized.isValid() ? normalized : null;
+  };
+
+  const formatDelay = (minutes) => {
+    if (!Number.isFinite(minutes)) return '';
+    const abs = Math.abs(Math.round(minutes));
+    const hours = Math.floor(abs / 60);
+    const mins = abs % 60;
+    if (hours && mins) return `${hours}h ${mins}min`;
+    if (hours) return `${hours}h`;
+    return `${mins}min`;
+  };
 
   // helpers
   const formatTime = (s) => {
@@ -59,6 +76,65 @@ export default function PatientTasks({ tasks = [], onSave }) {
       typeId === 7 || // puls
       Number(t.d_vrijednost_required) === 1
     );
+  };
+
+  const items = useMemo(() => {
+    const arr = Array.isArray(tasks) ? [...tasks] : [];
+    arr.sort((a, b) => {
+      const ta = parseDateTime(a?.datum);
+      const tb = parseDateTime(b?.datum);
+      if (ta && tb) return ta.valueOf() - tb.valueOf();
+      if (ta) return -1;
+      if (tb) return 1;
+      const aName = a?.naziv || a?.vrsta || '';
+      const bName = b?.naziv || b?.vrsta || '';
+      return aName.localeCompare(bName);
+    });
+    return arr;
+  }, [tasks]);
+
+  const buildSignal = (t) => {
+    if (isDone(t)) return null;
+    if (!needsMeasurement(t)) return null;
+
+    const dueAt = parseDateTime(t.datum);
+    const lateMinutes = dueAt ? dayjs().diff(dueAt, 'minute') : null; // >0 => kasni
+    const baseTitle = t.naziv || t.vrsta || 'Zadatak';
+
+    if (lateMinutes !== null) {
+      if (lateMinutes >= 90) {
+        return {
+          tone: 'Late',
+          label: 'Kasni',
+          meta: `${formatDelay(lateMinutes)} bez unosa`,
+          title: `${baseTitle}: nema potvrde da je terapija/mjerenje odrađeno.`,
+        };
+      }
+      if (lateMinutes >= 10) {
+        return {
+          tone: 'Warn',
+          label: 'Čeka sestru',
+          meta: `Kasni ${formatDelay(lateMinutes)}`,
+          title: `${baseTitle}: prošlo planirano vrijeme, nema unosa.`,
+        };
+      }
+      if (lateMinutes >= -20) {
+        const eta = lateMinutes < 0 ? `Za ${formatDelay(Math.abs(lateMinutes))}` : 'Odmah';
+        return {
+          tone: 'Soon',
+          label: 'Vrijeme je',
+          meta: `${eta}, još bez unosa`,
+          title: `${baseTitle}: treba upravo sada zabilježiti vrijednost/terapiju.`,
+        };
+      }
+    }
+
+    return {
+      tone: 'Info',
+      label: 'Bez potvrde',
+      meta: dueAt ? `Planirano u ${dueAt.format('HH:mm')}` : 'Nema zapisa o izvršenju',
+      title: `${baseTitle}: čeka unos da je terapija/mjerenje odrađeno.`,
+    };
   };
 
   const renderMeasurement = (t, key) => {
@@ -163,16 +239,23 @@ export default function PatientTasks({ tasks = [], onSave }) {
     const doneTasks = completed.map(([, task]) => task);
     const measurements = completed.map(([key, task]) => {
       const m = measureMap[key] || {};
+      const typeId = Number(task.id_vrste);
       const entry = {
         task,
         id: task.id,
         id_vrste: task.id_vrste,
-        value: m.v1 ?? '',
-        value2: m.v2 ?? '',
+        value: '',
+        value2: '',
         unit: task.d_jedinica ?? task.jedinica ?? '',
       };
-      if (Number(task.id_vrste) === 3) {
+
+      if (typeId === 3) {
         entry.kolicina = m.v1 ?? '';
+      } else if (typeId === 6) {
+        entry.value = m.v1 ?? '';
+        entry.value2 = m.v2 ?? '';
+      } else {
+        entry.value = m.v1 ?? '';
       }
       return entry;
     });
@@ -191,35 +274,48 @@ export default function PatientTasks({ tasks = [], onSave }) {
             const valueText = buildValueText(t);
             const refRange = t.d_ref_vrijednosti || '';
             const noteSingle = t.napomena || '';
+            const signal = buildSignal(t);
+            const toneClass = signal?.tone ? styles[`signal${signal.tone}`] : '';
 
             return (
               <li key={key} className={styles.item}>
                 <div className={styles.left}>
                   <div className={styles.titleRow}>
                     <div className={styles.title}>{t.naziv ?? t.vrsta ?? 'Zadatak'}</div>
-                    {time ? (
-                      <span className={styles.timeWrap} title="Vrijeme">
-                        <svg className={styles.timeIcon} viewBox="0 0 24 24" aria-hidden="true">
-                          <circle
-                            cx="12"
-                            cy="12"
-                            r="8"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                          />
-                          <path
-                            d="M12 8v5l3 2"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                        <span className={styles.time}>{time}</span>
-                      </span>
-                    ) : null}
+                    <div className={styles.titleMeta}>
+                      {signal ? (
+                        <span
+                          className={`${styles.signal} ${toneClass}`.trim()}
+                          title={signal.title || undefined}
+                        >
+                          <span className={styles.signalDot} aria-hidden />
+                          <span className={styles.signalLabel}>{signal.label}</span>
+                        </span>
+                      ) : null}
+                      {time ? (
+                        <span className={styles.timeWrap} title="Vrijeme">
+                          <svg className={styles.timeIcon} viewBox="0 0 24 24" aria-hidden="true">
+                            <circle
+                              cx="12"
+                              cy="12"
+                              r="8"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            />
+                            <path
+                              d="M12 8v5l3 2"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          <span className={styles.time}>{time}</span>
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className={styles.detailsRow}>

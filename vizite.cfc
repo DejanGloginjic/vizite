@@ -1,4 +1,4 @@
-<cfcomponent displayname="vizite">
+﻿<cfcomponent displayname="vizite">
     <cfinclude template="../cffunkcije.cfm">
 
     <!---<cfset SESSION.baza_podataka = "kiss">
@@ -49,16 +49,16 @@
     </cffunction>
 
     <!-- =========================
-         ŠIFRARNICI / POMOĆNE
+         Ĺ IFRARNICI / POMOÄ†NE
          ========================= -->
 
-    <!-- Sve sobe za izabrano skladište iz sesije -->
+    <!-- Sve sobe za izabrano skladiĹˇte iz sesije -->
     <cffunction name="getRooms" access="remote" returntype="array" returnformat="json">
         <cfset var q         = "" />
         <cfset var result    = [] />
         <cfset var skladisteId = Val(SESSION.izabrano_skladiste) />
 
-        <!-- Ako nije izabrano skladište u sesiji, vrati prazan niz -->
+        <!-- Ako nije izabrano skladiĹˇte u sesiji, vrati prazan niz -->
         <cfif NOT skladisteId>
             <cfreturn result>
         </cfif>
@@ -157,6 +157,393 @@
                 <cfset err.nativeErr = structKeyExists(cfcatch, "NativeErrorCode") ? cfcatch.NativeErrorCode : "">
                 <cfset err.queryErr  = structKeyExists(cfcatch, "queryError") ? cfcatch.queryError : "">
                 <cfreturn err>
+            </cfcatch>
+        </cftry>
+    </cffunction>
+
+    <!-- Sifrarnik dijeta -->
+    <cffunction name="getDiets" access="remote" returntype="array" returnformat="json">
+        <cfset var q = "">
+        <cfquery name="q" datasource="#SESSION.baza_podataka#">
+            SELECT
+                dijeta_id,
+                dijeta_sif,
+                dijeta_naz,
+                dijeta_skraceni_naz,
+                id_proizvoda,
+                br_obroka
+            FROM s_dijete
+            WHERE obrisano = 0
+              AND (aktivno = 1 OR aktivno IS NULL)
+            ORDER BY sort, dijeta_naz
+        </cfquery>
+        <cfreturn QueryToArray(q)>
+    </cffunction>
+
+    <!-- Akcija nad stavkom (insert/update/delete) sa logikom kao modul_ajax_todo_stavka_akcija.cfm -->
+    <cffunction name="processTaskAction" access="remote" returntype="struct" returnformat="json">
+        <!-- osnovni parametri -->
+        <cfargument name="id_stavke"        type="numeric" required="no">
+        <cfargument name="brisanje"        type="numeric" required="no" default="0">
+        <cfargument name="id_pacijenta"    type="numeric" required="yes">
+        <cfargument name="id_epizode"      type="numeric" required="no">
+        <cfargument name="id_vrste"        type="numeric" required="yes">
+        <cfargument name="datum"           type="string"  required="no" default="">
+        <cfargument name="vrijeme"         type="string"  required="no" default="">
+        <cfargument name="kolicina"        type="string"  required="no" default="">
+        <cfargument name="id_ref"          type="numeric" required="no">
+        <cfargument name="vrijednost"      type="string"  required="no" default="">
+        <cfargument name="vrijednost1"     type="string"  required="no" default="">
+        <cfargument name="vrijednost2"     type="string"  required="no" default="">
+        <cfargument name="realizacija"     type="numeric" required="no" default="0">
+        <cfargument name="razduzenje"      type="numeric" required="no" default="0">
+        <cfargument name="kontinuirano"    type="numeric" required="no" default="0">
+        <cfargument name="nacin_zakazivanja" type="numeric" required="no" default="1">
+        <cfargument name="broj_sati"       type="numeric" required="no" default="8">
+        <cfargument name="napomena"        type="string"  required="no" default="">
+
+        <cfset var res          = StructNew()>
+        <cfset var pid          = Val(arguments.id_pacijenta)>
+        <cfset var tid          = structKeyExists(arguments,"id_stavke") ? Val(arguments.id_stavke) : 0>
+        <cfset var vrstaId      = Val(arguments.id_vrste)>
+        <cfset var epId         = structKeyExists(arguments,"id_epizode") ? Val(arguments.id_epizode) : 0>
+        <cfset var dateStr      = Trim(arguments.datum)>
+        <cfset var timeStr      = Trim(arguments.vrijeme)>
+        <cfset var dtCombined   = "">
+        <cfset var vrstaMeta    = "">
+        <cfset var unit         = "">
+        <cfset var refVals      = "">
+        <cfset var regexVals    = "">
+        <cfset var status       = 0>
+        <cfset var qtyStr       = Trim(arguments.kolicina)>
+        <cfset var qtyNum       = "">
+        <cfset var idRefVal     = structKeyExists(arguments,"id_ref") ? Val(arguments.id_ref) : 0>
+        <cfset var valMain      = Trim(arguments.vrijednost)>
+        <cfset var val1         = Trim(arguments.vrijednost1)>
+        <cfset var val2         = Trim(arguments.vrijednost2)>
+        <cfset var contin       = Val(arguments.kontinuirano)>
+        <cfset var scheduleMode = Val(arguments.nacin_zakazivanja)>
+        <cfset var scheduleStep = Val(arguments.broj_sati)>
+        <cfset var createdIds   = []>
+        <cfset var nowTs        = now()>
+        <cfset var issueQtyNum  = Len(qtyStr) ? Val(qtyStr) : 0>
+
+        <cftry>
+            <cfif NOT pid>
+                <cfthrow message="Nedostaje id_pacijenta.">
+            </cfif>
+            <cfif NOT vrstaId>
+                <cfthrow message="Nedostaje id_vrste.">
+            </cfif>
+
+            <!-- meta vrste -->
+            <cfquery name="vrstaMeta" datasource="#SESSION.baza_podataka#">
+                SELECT d_jedinica, d_ref_vrijednosti, d_regexp
+                FROM ttd_lista_vrste
+                WHERE id = <cfqueryparam cfsqltype="cf_sql_integer" value="#vrstaId#">
+                LIMIT 1
+            </cfquery>
+            <cfif vrstaMeta.recordCount>
+                <cfset unit    = vrstaMeta.d_jedinica>
+                <cfset refVals = vrstaMeta.d_ref_vrijednosti>
+                <cfset regexVals = vrstaMeta.d_regexp>
+            </cfif>
+
+            <!-- norm datuma/vremena -->
+            <cfset var parsedDate = "">
+            <cfset var parsedTime = "">
+
+            <cfif Len(dateStr)>
+                <cfif reFind("^\d{2}\.\d{2}\.\d{4}$", dateStr)>
+                    <cfset parsedDate = createDate( val(Right(dateStr,4)), val(Mid(dateStr,4,2)), val(Left(dateStr,2)) )>
+                <cfelseif isDate(dateStr)>
+                    <cfset parsedDate = parseDateTime(dateStr)>
+                </cfif>
+            </cfif>
+            <cfif NOT Len(dateStr)>
+                <cfset parsedDate = now()>
+            </cfif>
+
+            <cfif Len(timeStr)>
+                <cfif reFind("^\d{2}:\d{2}$", timeStr)>
+                    <cfset parsedTime = timeStr>
+                <cfelseif isDate(timeStr)>
+                    <cfset parsedTime = TimeFormat(parseDateTime(timeStr), "HH:mm")>
+                </cfif>
+            <cfelse>
+                <cfset parsedTime = TimeFormat(now(), "HH:mm")>
+            </cfif>
+
+            <cfif NOT isDate(parsedDate)>
+                <cfthrow message="Datum nije ispravan.">
+            </cfif>
+            <cfif NOT Len(parsedTime)>
+                <cfthrow message="Vrijeme nije ispravno.">
+            </cfif>
+
+            <cfset dtCombined = createDateTime(
+                Year(parsedDate),
+                Month(parsedDate),
+                Day(parsedDate),
+                Val(ListFirst(parsedTime, ":")),
+                Val(ListLast(parsedTime, ":")),
+                0
+            )>
+
+            <!-- aktivna epizoda ako nije poslata -->
+            <cfif NOT epId>
+                <cfquery name="qEp" datasource="#SESSION.baza_podataka#">
+                    SELECT id
+                    FROM epizoda
+                    WHERE id_pacijenta = <cfqueryparam cfsqltype="cf_sql_integer" value="#pid#">
+                      AND (datum_do IS NULL OR datum_do > NOW())
+                    ORDER BY datum_od DESC, id DESC
+                    LIMIT 1
+                </cfquery>
+                <cfif qEp.recordCount>
+                    <cfset epId = qEp.id>
+                </cfif>
+            </cfif>
+
+            <!-- BRISANJE -->
+            <cfif Val(arguments.brisanje) EQ 1>
+                <cfif NOT tid>
+                    <cfthrow message="Stavka nije definisana za brisanje.">
+                </cfif>
+                <cfquery name="qDel" datasource="#SESSION.baza_podataka#">
+                    UPDATE ttd_lista_sadrzaj_detalji
+                    SET obrisano = 1,
+                        id_obrisao = <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.id_korisnika#" null="#NOT structKeyExists(SESSION,'id_korisnika')#">
+                    WHERE id = <cfqueryparam cfsqltype="cf_sql_integer" value="#tid#">
+                </cfquery>
+                <cfset res.ok = true>
+                <cfset res.id = tid>
+                <cfset res.message = "Stavka obrisana.">
+                <cfreturn res>
+            </cfif>
+
+            <!-- validacije po vrsti -->
+            <!-- kolicina parsing -->
+            <cfif Len(qtyStr)>
+                <cfif isNumeric(qtyStr)>
+                    <cfset qtyNum = qtyStr>
+                <cfelse>
+                    <cfthrow message="KoliÄŤina nije numeriÄŤka.">
+                </cfif>
+            </cfif>
+
+            <!-- specific -->
+            <cfif vrstaId EQ 3>
+                <cfif (NOT Len(valMain)) AND (NOT idRefVal)>
+                    <cfthrow message="Nije definisan lijek za terapiju.">
+                </cfif>
+                <cfif NOT Len(qtyStr) OR NOT isNumeric(qtyStr)>
+                    <cfthrow message="Niste pravilno upisali koliÄŤinu lijeka.">
+                </cfif>
+            <cfelseif vrstaId EQ 5>
+                <cfif Len(valMain) AND NOT isNumeric(valMain)>
+                    <cfset valMain = "">
+                </cfif>
+            <cfelseif vrstaId EQ 6>
+                <cfif isNumeric(val1) AND isNumeric(val2)>
+                    <cfset valMain = Val(val1) & "/" & Val(val2)>
+                <cfelseif isNumeric(val1) AND NOT isNumeric(val2)>
+                    <cfthrow message="Niste pravilno upisali dijastolni pritisak.">
+                <cfelseif isNumeric(val2) AND NOT isNumeric(val1)>
+                    <cfthrow message="Niste pravilno upisali sistolni pritisak.">
+                <cfelse>
+                    <cfset valMain = "">
+                </cfif>
+            <cfelseif vrstaId EQ 7>
+                <cfif Len(valMain) AND NOT isNumeric(valMain)>
+                    <cfset valMain = "">
+                </cfif>
+            <cfelseif vrstaId EQ 10>
+                <cfif (NOT Len(valMain)) AND (NOT idRefVal)>
+                    <cfthrow message="Niste definisali dijetu.">
+                </cfif>
+                <cfif Len(qtyStr) AND NOT isNumeric(qtyStr)>
+                    <cfthrow message="Niste pravilno upisali količinu.">
+                </cfif>
+            <cfelseif vrstaId EQ 13>
+                <cfif NOT Len(valMain)>
+                    <cfthrow message="Niste upisali opis zapaĹľanja.">
+                </cfif>
+            <cfelseif vrstaId EQ 15>
+                <cfif (NOT Len(valMain)) AND (NOT idRefVal)>
+                    <cfthrow message="Niste definisali dijagnostiÄŤku proceduru.">
+                </cfif>
+                <cfset qtyNum = "">
+            <cfelse>
+                <cfset idRefVal = 0>
+            </cfif>
+
+            <!-- status -->
+            <cfset status = 0>
+            <cfif vrstaId EQ 3 OR vrstaId EQ 15 OR vrstaId EQ 14>
+                <cfset status = Val(arguments.realizacija)>
+            <cfelseif Len(valMain)>
+                <cfset status = 1>
+            </cfif>
+
+            <!-- INSERT ili UPDATE -->
+            <cftransaction>
+                <cfif NOT tid>
+                    <cfquery name="qIns" datasource="#SESSION.baza_podataka#" result="qInsRes">
+                        INSERT INTO ttd_lista_sadrzaj_detalji
+                            (id_pacijenta, id_epizode, id_vrste, id_ref, datum, kolicina, vrijednost, jedinica, ref_vrijednosti, regular_expression, id_kreirao, id_izmjenio, status, status_promjena, ponavljanje, ponavljanje_id, obrisano, napomena)
+                        VALUES (
+                            <cfqueryparam cfsqltype="cf_sql_integer" value="#pid#">,
+                            <cfqueryparam cfsqltype="cf_sql_integer" value="#epId#" null="#NOT Len(epId)#">,
+                            <cfqueryparam cfsqltype="cf_sql_integer" value="#vrstaId#">,
+                            <cfqueryparam cfsqltype="cf_sql_integer" value="#idRefVal#" null="#NOT Len(idRefVal & '')#">,
+                            <cfqueryparam cfsqltype="cf_sql_timestamp" value="#dtCombined#">,
+                            <cfqueryparam cfsqltype="cf_sql_decimal" scale="8" value="#qtyNum#" null="#NOT Len(qtyNum & '')#">,
+                            <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#valMain#">,
+                            <cfqueryparam cfsqltype="cf_sql_varchar" value="#unit#" null="#NOT Len(unit & '')#">,
+                            <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#refVals#" null="#NOT Len(refVals & '')#">,
+                            <cfqueryparam cfsqltype="cf_sql_varchar" value="#regexVals#" null="#NOT Len(regexVals & '')#">,
+                            <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.id_korisnika#" null="#NOT structKeyExists(SESSION,'id_korisnika')#">,
+                            <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.id_korisnika#" null="#NOT structKeyExists(SESSION,'id_korisnika')#">,
+                            <cfqueryparam cfsqltype="cf_sql_integer" value="#status#">,
+                            <cfqueryparam cfsqltype="cf_sql_timestamp" value="#nowTs#">,
+                            <cfqueryparam cfsqltype="cf_sql_integer" value="#contin#">,
+                            NULL,
+                            0,
+                            <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#arguments.napomena#">
+                        )
+                    </cfquery>
+                    <cfset tid = structKeyExists(qInsRes,"GENERATEDKEY") ? qInsRes.GENERATEDKEY : tid>
+                    <cfset ArrayAppend(createdIds, tid)>
+
+                    <!-- ponavljanje ako je traĹľeno (ograniÄŤeno 24h kao u legacy) -->
+                    <cfif scheduleMode NEQ 1>
+                        <cfset var limitDt = createDateTime(Year(dtCombined), Month(dtCombined), Day(dtCombined)+1, 0, 0, 0)>
+                        <cfset var nextDt = DateAdd("h", Max(scheduleStep,1), dtCombined)>
+                        <cfset var attempts = (scheduleMode GTE 2) ? (scheduleMode - 1) : 999>
+
+                        <cfloop condition="nextDt LT limitDt AND attempts GT 0">
+                            <cfquery name="qInsNext" datasource="#SESSION.baza_podataka#" result="qNext">
+                                INSERT INTO ttd_lista_sadrzaj_detalji
+                                    (id_pacijenta, id_epizode, id_vrste, id_ref, datum, kolicina, vrijednost, jedinica, ref_vrijednosti, regular_expression, id_kreirao, id_izmjenio, status, status_promjena, ponavljanje, ponavljanje_id, obrisano, napomena)
+                                VALUES (
+                                    <cfqueryparam cfsqltype="cf_sql_integer" value="#pid#">,
+                                    <cfqueryparam cfsqltype="cf_sql_integer" value="#epId#" null="#NOT Len(epId)#">,
+                                    <cfqueryparam cfsqltype="cf_sql_integer" value="#vrstaId#">,
+                                    <cfqueryparam cfsqltype="cf_sql_integer" value="#idRefVal#" null="#NOT Len(idRefVal & '')#">,
+                                    <cfqueryparam cfsqltype="cf_sql_timestamp" value="#nextDt#">,
+                                    <cfqueryparam cfsqltype="cf_sql_decimal" scale="8" value="#qtyNum#" null="#NOT Len(qtyNum & '')#">,
+                                    <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#valMain#">,
+                                    <cfqueryparam cfsqltype="cf_sql_varchar" value="#unit#" null="#NOT Len(unit & '')#">,
+                                    <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#refVals#" null="#NOT Len(refVals & '')#">,
+                                    <cfqueryparam cfsqltype="cf_sql_varchar" value="#regexVals#" null="#NOT Len(regexVals & '')#">,
+                                    <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.id_korisnika#" null="#NOT structKeyExists(SESSION,'id_korisnika')#">,
+                                    NULL,
+                                    0,
+                                    NULL,
+                                    <cfqueryparam cfsqltype="cf_sql_integer" value="#contin#">,
+                                    <cfqueryparam cfsqltype="cf_sql_integer" value="#tid#">,
+                                    0,
+                                    <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#arguments.napomena#">
+                                )
+                            </cfquery>
+                            <cfif structKeyExists(qNext,"GENERATEDKEY")>
+                                <cfset ArrayAppend(createdIds, qNext.GENERATEDKEY)>
+                            </cfif>
+                            <cfset nextDt = DateAdd("h", Max(scheduleStep,1), nextDt)>
+                            <cfset attempts = attempts - 1>
+                        </cfloop>
+                    </cfif>
+
+                <cfelse>
+                    <!-- update -->
+                    <cfquery name="qOld" datasource="#SESSION.baza_podataka#">
+                        SELECT id, status FROM ttd_lista_sadrzaj_detalji WHERE id = <cfqueryparam cfsqltype="cf_sql_integer" value="#tid#"> AND obrisano = 0
+                    </cfquery>
+                    <cfif NOT qOld.recordCount>
+                        <cfthrow message="Stavka nije pronaÄ‘ena.">
+                    </cfif>
+
+                    <cfquery name="qUpd" datasource="#SESSION.baza_podataka#">
+                        UPDATE ttd_lista_sadrzaj_detalji
+                        SET
+                            id_vrste = <cfqueryparam cfsqltype="cf_sql_integer" value="#vrstaId#">,
+                            id_ref = <cfqueryparam cfsqltype="cf_sql_integer" value="#idRefVal#" null="#NOT Len(idRefVal & '')#">,
+                            datum = <cfqueryparam cfsqltype="cf_sql_timestamp" value="#dtCombined#">,
+                            vrijednost = <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#valMain#">,
+                            jedinica = <cfqueryparam cfsqltype="cf_sql_varchar" value="#unit#" null="#NOT Len(unit & '')#">,
+                            ref_vrijednosti = <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#refVals#" null="#NOT Len(refVals & '')#">,
+                            regular_expression = <cfqueryparam cfsqltype="cf_sql_varchar" value="#regexVals#" null="#NOT Len(regexVals & '')#">,
+                            id_izmjenio = <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.id_korisnika#" null="#NOT structKeyExists(SESSION,'id_korisnika')#">,
+                            status = <cfqueryparam cfsqltype="cf_sql_integer" value="#status#">,
+                            status_promjena = <cfqueryparam cfsqltype="cf_sql_timestamp" value="#nowTs#">,
+                            ponavljanje = <cfqueryparam cfsqltype="cf_sql_integer" value="#contin#">,
+                            napomena = <cfqueryparam cfsqltype="cf_sql_longvarchar" value="#arguments.napomena#">
+                            <cfif qOld.status EQ 0>
+                                , kolicina = <cfqueryparam cfsqltype="cf_sql_decimal" scale="8" value="#qtyNum#" null="#NOT Len(qtyNum & '')#">
+                            </cfif>
+                        WHERE id = <cfqueryparam cfsqltype="cf_sql_integer" value="#tid#">
+                    </cfquery>
+                </cfif>
+            </cftransaction>
+
+            <!-- razduzenje skladista (terapija/dijeta) -->
+            <cfif ( (vrstaId EQ 3 OR vrstaId EQ 10) AND Val(arguments.razduzenje) EQ 1 AND idRefVal AND issueQtyNum GT 0 )>
+                <cfset var skladisteGrupa = structKeyExists(SESSION,'organizacija') ? SESSION.organizacija : 0>
+                <cfset var skladisteOdjel = structKeyExists(SESSION,'organizacija_odjel') ? SESSION.organizacija_odjel : 0>
+                <cfset var invResult      = {} >
+
+                <cfif skladisteGrupa AND skladisteOdjel>
+                    <cftry>
+                        <cfinvoke component="kis.bisa_2.main" method="izdaj_proizvod" returnvariable="invResult" timeout="30">
+                            <cfinvokeargument name="skladiste_grupa" value="#skladisteGrupa#">
+                            <cfinvokeargument name="skladiste" value="#skladisteOdjel#">
+                            <cfinvokeargument name="id_korisnika" value="#structKeyExists(SESSION,'id_korisnika') ? SESSION.id_korisnika : 0#">
+                            <cfinvokeargument name="id_pacijenta" value="#pid#">
+                            <cfinvokeargument name="id_epizode" value="#epId#">
+                            <cfinvokeargument name="id_proizvoda" value="#idRefVal#">
+                            <cfinvokeargument name="kolicina" value="#issueQtyNum#">
+                            <cfinvokeargument name="ID_transakcije" value="ttd_#tid#">
+                            <cfinvokeargument name="omoguci_minus" value="1">
+                            <cfinvokeargument name="vrsta_transakcije" value="1">
+                            <cfinvokeargument name="napomena" value="">
+                        </cfinvoke>
+
+                        <cfif structKeyExists(invResult,"greska") AND invResult.greska>
+                            <cfset var invMsg = "">
+                            <cfif structKeyExists(invResult,"poruka")>
+                                <cfset invMsg = invResult.poruka>
+                            </cfif>
+                            <cfset res.ok = false>
+                            <cfset res.message = "RazduĹľenje nije uspjelo: " & invMsg>
+                            <cfreturn res>
+                        </cfif>
+                        <cfset res.razduzenje = invResult>
+                        <cfcatch type="any">
+                            <cfset res.ok = false>
+                            <cfset res.message = "GreĹˇka pri razduĹľenju: " & cfcatch.message>
+                            <cfset res.detail  = cfcatch.detail>
+                            <cfreturn res>
+                        </cfcatch>
+                    </cftry>
+                </cfif>
+            </cfif>
+
+            <cfset res.ok = true>
+            <cfset res.id = tid>
+            <cfset res.created = createdIds>
+            <cfset res.count = ArrayLen(createdIds)>
+            <cfreturn res>
+
+            <cfcatch type="any">
+                <cfset res.ok        = false>
+                <cfset res.message   = cfcatch.message>
+                <cfset res.detail    = cfcatch.detail>
+                <cfset res.where     = "vizite.cfc/processTaskAction">
+                <cfset res.sqlState  = structKeyExists(cfcatch, "SQLState") ? cfcatch.SQLState : "">
+                <cfset res.nativeErr = structKeyExists(cfcatch, "NativeErrorCode") ? cfcatch.NativeErrorCode : "">
+                <cfset res.queryErr  = structKeyExists(cfcatch, "queryError") ? cfcatch.queryError : "">
+                <cfreturn res>
             </cfcatch>
         </cftry>
     </cffunction>
@@ -385,7 +772,7 @@
 
 
 
-    <!-- Aktivni pacijenti sa AKTIVNOM epizodom + važećim krevetom; opciono filtriranje po sobi -->
+    <!-- Aktivni pacijenti sa AKTIVNOM epizodom + vaĹľeÄ‡im krevetom; opciono filtriranje po sobi -->
     <!---<cffunction name="getPatients" access="remote" returntype="array" returnformat="json">
         <cfargument name="soba_id" type="numeric" required="no">
         <cfset var q = "">
@@ -405,7 +792,7 @@
                 k.id   AS krevet_id,
                 k.broj_kreveta
             FROM pacijenti p
-            /* Važeći zapis kreveta koji pripada AKTIVNOJ epizodi pacijenta */
+            /* VaĹľeÄ‡i zapis kreveta koji pripada AKTIVNOJ epizodi pacijenta */
             JOIN krevet_detalji kd
                 ON  kd.id_pacijenta = p.id
                 AND (kd.datum_do IS NULL OR kd.datum_do > NOW())
@@ -650,6 +1037,8 @@
         <cfargument name="jedinica"   type="string"  required="no">
         <cfargument name="kolicina"   type="numeric" required="no">
         <cfargument name="napomena"   type="string"  required="no">
+        <!--- da li raditi razduzenje (default: 1 za terapiju/dijetu) --->
+        <cfargument name="razduzenje" type="numeric" required="no">
 
         <cfset var res        = StructNew()>
         <cfset var tid        = Val(arguments.task_id)>
@@ -659,6 +1048,10 @@
         <cfset var newUnit    = "">
         <cfset var newQty     = "">
         <cfset var newNote    = "">
+        <cfset var doRazduzenje = structKeyExists(arguments,"razduzenje") ? Val(arguments.razduzenje) : 1>
+        <cfset var qtyNum       = 0>
+                <cfset var invResult    = {} >
+                <cfset var issueQtyNum  = structKeyExists(arguments,"kolicina") ? Val(arguments.kolicina) : qtyNum>
 
         <cftry>
             <cfif NOT tid>
@@ -667,7 +1060,8 @@
 
             <!-- Trenutni zadatak + meta iz vrste -->
             <cfquery name="qTask" datasource="#SESSION.baza_podataka#">
-                SELECT d.id, d.vrijednost, d.jedinica, d.kolicina, d.status, d.napomena,
+                SELECT d.id, d.id_vrste, d.id_ref, d.id_pacijenta, d.id_epizode,
+                       d.vrijednost, d.jedinica, d.kolicina, d.status, d.napomena,
                        v.d_vrijednost_required, v.d_jedinica
                 FROM ttd_lista_sadrzaj_detalji d
                 LEFT JOIN ttd_lista_vrste v ON v.id = d.id_vrste
@@ -685,6 +1079,7 @@
             <cfset newUnit   = structKeyExists(arguments,"jedinica") ? arguments.jedinica : (Len(qTask.jedinica) ? qTask.jedinica : qTask.d_jedinica)>
             <cfset newQty    = structKeyExists(arguments,"kolicina") ? arguments.kolicina : qTask.kolicina>
             <cfset newNote   = structKeyExists(arguments,"napomena") ? arguments.napomena : qTask.napomena>
+            <cfset qtyNum    = Len(newQty & "") ? Val(newQty) : 0>
 
             <cfif qTask.d_vrijednost_required EQ 1 AND newStatus EQ 1 AND NOT Len(Trim(newValue))>
                 <cfthrow message="Vrijednost je obavezna kada oznacavas zadatak kao izvrsen.">
@@ -702,6 +1097,47 @@
                     id_izmjenio     = <cfqueryparam cfsqltype="cf_sql_integer" value="#SESSION.id_korisnika#" null="#NOT structKeyExists(SESSION,'id_korisnika')#">
                 WHERE id = <cfqueryparam cfsqltype="cf_sql_integer" value="#tid#">
             </cfquery>
+
+            <!--- razduzivanje (terapija/dijeta), samo na prelazu u status 1 --->
+            <cfif (qTask.id_vrste EQ 3 OR qTask.id_vrste EQ 10)>
+                <cfset var skladisteGrupa = structKeyExists(SESSION,"izabrana_grupa_skladista") ? SESSION.izabrana_grupa_skladista : 0>
+                <cfset var skladisteOdjel = structKeyExists(SESSION,"izabrano_skladiste") ? SESSION.izabrano_skladiste : 0>
+                <cfset var idRefVal       = Val(qTask.id_ref)>
+                <cfif skladisteGrupa AND skladisteOdjel AND idRefVal GT 0 AND issueQtyNum GT 0>
+                    <cftry>
+                        <cfinvoke component="kis.bisa_2.main" method="izdaj_proizvod" returnvariable="invResult" timeout="30">
+                            <cfinvokeargument name="skladiste_grupa" value="#skladisteGrupa#">
+                            <cfinvokeargument name="skladiste" value="#skladisteOdjel#">
+                            <cfinvokeargument name="id_korisnika" value="#structKeyExists(SESSION,'id_korisnika') ? SESSION.id_korisnika : 0#">
+                            <cfinvokeargument name="id_pacijenta" value="#qTask.id_pacijenta#">
+                            <cfinvokeargument name="id_epizode" value="#qTask.id_epizode#">
+                            <cfinvokeargument name="id_proizvoda" value="#idRefVal#">
+                            <cfinvokeargument name="kolicina" value="#issueQtyNum#">
+                            <cfinvokeargument name="ID_transakcije" value="ttd_#tid#">
+                            <cfinvokeargument name="omoguci_minus" value="1">
+                            <cfinvokeargument name="vrsta_transakcije" value="1">
+                            <cfinvokeargument name="napomena" value="">
+                        </cfinvoke>
+                        <cfif structKeyExists(invResult,"greska") AND invResult.greska>
+                            <cfset var invMsg = "">
+                            <cfif structKeyExists(invResult,"poruka")>
+                                <cfset invMsg = invResult.poruka>
+                            </cfif>
+                            <cfset res.ok      = false>
+                            <cfset res.message = "Razduzenje nije uspjelo: " & invMsg>
+                            <cfset res.razduzenje = invResult>
+                            <cfreturn res>
+                        </cfif>
+                        <cfset res.razduzenje = invResult>
+                        <cfcatch type="any">
+                            <cfset res.ok      = false>
+                            <cfset res.message = "Greska pri razduzenju: " & cfcatch.message>
+                            <cfset res.detail  = cfcatch.detail>
+                            <cfreturn res>
+                        </cfcatch>
+                    </cftry>
+                </cfif>
+            </cfif>
 
             <cfset res.ok      = true>
             <cfset res.id      = tid>
@@ -722,11 +1158,11 @@
         </cftry>
     </cffunction>
 
-    <!-- (Opcionalno) Zadaci po opsegu datuma – za eventualne izvještaje/istoriju u UI -->
+    <!-- (Opcionalno) Zadaci po opsegu datuma â€“ za eventualne izvjeĹˇtaje/istoriju u UI -->
     <cffunction name="getPatientTasksRange" access="remote" returntype="array" returnformat="json">
         <cfargument name="patient_id" type="numeric" required="yes">
         <cfargument name="start_date" type="string"  required="yes"> <!-- 'YYYY-MM-DD' -->
-        <cfargument name="end_date"   type="string"  required="yes"> <!-- 'YYYY-MM-DD' (uključivo) -->
+        <cfargument name="end_date"   type="string"  required="yes"> <!-- 'YYYY-MM-DD' (ukljuÄŤivo) -->
         <cfset var q = "">
         <cfset var ds = createDateTime( val(Left(arguments.start_date,4)), val(Mid(arguments.start_date,6,2)), val(Right(arguments.start_date,2)), 0,0,0 )>
         <cfset var de = dateAdd("d", 1, createDateTime( val(Left(arguments.end_date,4)), val(Mid(arguments.end_date,6,2)), val(Right(arguments.end_date,2)), 0,0,0 ))>
@@ -762,7 +1198,7 @@
     </cffunction>
 
 <cffunction name="lista_skladista_korisnika" access="remote" returntype="array" returnformat="json"
-    hint="Vraća sve skladiste_grupa i njihova skladista za trenutnog korisnika iz sesije.">
+    hint="VraÄ‡a sve skladiste_grupa i njihova skladista za trenutnog korisnika iz sesije.">
 
     <cfset var userId    = Val(SESSION.id_korisnika) />
     <cfset var qData     = "" />
@@ -777,7 +1213,7 @@
         <cfreturn groups>
     </cfif>
 
-    <!-- 1) Povuci grupe + skladišta za tog korisnika -->
+    <!-- 1) Povuci grupe + skladiĹˇta za tog korisnika -->
     <cfquery name="qData" datasource="#SESSION.baza_podataka#">
         SELECT DISTINCT
             g.ID                     AS grupa_id,
@@ -802,18 +1238,18 @@
         ORDER BY g.naziv, s.naziv
     </cfquery>
 
-    <!-- 2) Grupisanje: jedna grupa -> niz skladišta -->
+    <!-- 2) Grupisanje: jedna grupa -> niz skladiĹˇta -->
     <cfloop query="qData">
         <cfset gid = qData.grupa_id />
 
-        <!-- ako grupa još nije dodana, kreiraj je -->
+        <!-- ako grupa joĹˇ nije dodana, kreiraj je -->
         <cfif NOT StructKeyExists(groupsMap, gid)>
             <cfset g = StructNew() />
             <cfset g.id        = qData.grupa_id />
             <cfset g.naziv     = qData.grupa_naziv />
             <cfset g.opis      = qData.grupa_opis />
             <cfset g.adresa    = qData.grupa_adresa />
-            <!-- ovdje nemamo g.aktivno u bazi, pa ili ga preskačemo ili hard-code 1 -->
+            <!-- ovdje nemamo g.aktivno u bazi, pa ili ga preskaÄŤemo ili hard-code 1 -->
             <cfset g.aktivno   = 1 />
             <cfset g.skladista = [] />
 
@@ -821,7 +1257,7 @@
             <cfset groupsMap[gid] = g />
         </cfif>
 
-        <!-- ako postoji skladište, dodaj ga u listu -->
+        <!-- ako postoji skladiĹˇte, dodaj ga u listu -->
         <cfif Len(qData.skladiste_id & "")>
             <cfset s = StructNew() />
             <cfset s.id        = qData.skladiste_id />
@@ -839,7 +1275,7 @@
 
 
 <cffunction name="setWorkingLocation" access="remote" returntype="struct" returnformat="json"
-    hint="Postavlja izabranu grupu skladišta i skladište u SESSION.">
+    hint="Postavlja izabranu grupu skladiĹˇta i skladiĹˇte u SESSION.">
     <cfargument name="grupa_id"     type="numeric" required="yes">
     <cfargument name="skladiste_id" type="numeric" required="yes">
 
@@ -849,7 +1285,7 @@
     <cfset SESSION.izabrana_grupa_skladista = Val(arguments.grupa_id) />
     <cfset SESSION.izabrano_skladiste       = Val(arguments.skladiste_id) />
 
-    <!-- Po želji možeš ovdje dodati još logike (npr. provjera da li skladište pripada grupi) -->
+    <!-- Po Ĺľelji moĹľeĹˇ ovdje dodati joĹˇ logike (npr. provjera da li skladiĹˇte pripada grupi) -->
 
     <cfset res.ok                         = true />
     <cfset res.izabrana_grupa_skladista   = SESSION.izabrana_grupa_skladista />
@@ -859,9 +1295,9 @@
 </cffunction>
 
 <cffunction name="getPatientDocuments" access="remote" returntype="any" returnformat="json"
-    hint="Vraća dokumente pacijenta, grupisane po epizodi (sa osnovnim metapodacima).">
+    hint="VraÄ‡a dokumente pacijenta, grupisane po epizodi (sa osnovnim metapodacima).">
     <cfargument name="patient_id" type="numeric" required="yes">
-    <!-- opcioni filteri, za kasnije proširenje -->
+    <!-- opcioni filteri, za kasnije proĹˇirenje -->
     <cfargument name="date_from"  type="string"  required="no" default="">
     <cfargument name="date_to"    type="string"  required="no" default="">
     <cfargument name="episode_id" type="numeric" required="no">
@@ -945,7 +1381,7 @@
            access="remote"
            returntype="void"
            returnformat="json"
-           hint="Vraća sve epizode za datog pacijenta.">
+           hint="VraÄ‡a sve epizode za datog pacijenta.">
   <cfargument name="pacijent_id" type="string" required="yes">
 
   <cftry>
@@ -973,7 +1409,7 @@
         e.id DESC
     </cfquery>
 
-    <!--- pretpostavljam da već imaš QueryToArray + ok/fail helper-e kao u drugim CFC-ovima --->
+    <!--- pretpostavljam da veÄ‡ imaĹˇ QueryToArray + ok/fail helper-e kao u drugim CFC-ovima --->
     <cfset ok(
       data = QueryToArray(qEp)
     )>
@@ -981,7 +1417,7 @@
     <cfcatch type="any">
       <cfset fail(
         code   = "SERVER_ERROR",
-        message= "Greška pri učitavanju epizoda pacijenta: " & cfcatch.message,
+        message= "GreĹˇka pri uÄŤitavanju epizoda pacijenta: " & cfcatch.message,
         status = 500
       )>
     </cfcatch>
@@ -990,3 +1426,5 @@
 
 
 </cfcomponent>
+
+

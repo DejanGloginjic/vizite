@@ -29,10 +29,17 @@
 /* Naslov + vrijeme */
 .titleRow {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  flex-wrap: nowrap;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
+}
+.titleMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .title {
   font-weight: 800;
@@ -56,6 +63,80 @@
   font-variant-numeric: tabular-nums;
 }
 
+.signal {
+  --sig-bg: #eef2ff;
+  --sig-border: rgba(99, 102, 241, 0.4);
+  --sig-dot: #4f46e5;
+  --sig-glow: rgba(79, 70, 229, 0.16);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--sig-bg), #fff);
+  border: 1px solid var(--sig-border);
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.08);
+  white-space: nowrap;
+}
+.signalDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--sig-dot);
+  box-shadow: 0 0 0 4px var(--sig-glow);
+}
+.signalText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.signalLabel {
+  font-weight: 800;
+  font-size: 11.5px;
+  color: #0f172a;
+}
+.signalMeta {
+  font-size: 11px;
+  color: #475569;
+}
+.signalWarn {
+  --sig-bg: #fff7ed;
+  --sig-border: rgba(251, 146, 60, 0.65);
+  --sig-dot: #f97316;
+  --sig-glow: rgba(249, 115, 22, 0.18);
+}
+.signalLate {
+  --sig-bg: #fef2f2;
+  --sig-border: rgba(239, 68, 68, 0.6);
+  --sig-dot: #dc2626;
+  --sig-glow: rgba(220, 38, 38, 0.18);
+}
+.signalSoon {
+  --sig-bg: #e0f2fe;
+  --sig-border: rgba(59, 130, 246, 0.45);
+  --sig-dot: #1d4ed8;
+  --sig-glow: rgba(37, 99, 235, 0.16);
+}
+.signalInfo {
+  --sig-bg: #ecfeff;
+  --sig-border: rgba(14, 165, 233, 0.45);
+  --sig-dot: #0284c7;
+  --sig-glow: rgba(14, 165, 233, 0.16);
+}
+
+@media (max-width: 640px) {
+  .signal {
+    padding: 5px 9px;
+    gap: 6px;
+  }
+  .signalMeta {
+    display: none;
+  }
+  .titleMeta {
+    gap: 6px;
+  }
+}
+
 /* Detalji – bez čipova */
 .detailsRow {
   display: flex;
@@ -67,7 +148,7 @@
   font-size: 13px;
 }
 .detail {
-  white-space: nowrap;
+  white-space: normal;
 }
 .detailsRow .detail + .detail::before {
   content: "•";

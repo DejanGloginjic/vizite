@@ -5,6 +5,8 @@ export const getPatientTasks = (patient_id, date) =>
 
 export const getTaskTypes = () => cfcGet("getTaskTypes");
 
+export const getDiets = () => cfcGet("getDiets");
+
 export const createPatientTask = (payload) =>
   cfcPost("createPatientTask", payload);
 

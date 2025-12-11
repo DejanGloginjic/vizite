@@ -18,8 +18,9 @@
   padding: 8px var(--container-pad);
   display: grid;
   grid-template-columns: 1fr auto;
-  column-gap: 16px;
+  column-gap: 12px;
   align-items: center;
+  width: 100%;
 }
 
 /* Brand */
@@ -33,6 +34,7 @@
   align-items: center;
   gap: 8px;
   text-decoration: none;
+  min-width: 0;
 }
 .logo {
   width: 26px;
@@ -44,28 +46,51 @@
   align-items: baseline;
   gap: 6px;
   white-space: nowrap;
-}
-.appRoot {
-  font-weight: 700;
-  letter-spacing: 0.1px;
-  font-size: 14px;
-  color: #1e293b;
-}
-.dot {
-  color: #9ca3af;
-  font-weight: 700;
+  min-width: 0;
 }
 .appName {
   font-weight: 800;
   font-size: 18px;
   color: var(--fg);
 }
+.clientName {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
 
 /* User */
 .userArea {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+.locationCard {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--fg);
+  min-width: 0;
+  max-width: 56vw;
+}
+.locDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.12);
+  flex-shrink: 0;
+}
+.locText {
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .userCard {
   display: inline-flex;
@@ -76,9 +101,16 @@
   border: 1px solid var(--border);
   background: #fff;
 }
-.userIcon {
-  color: #2563eb;
-  flex-shrink: 0;
+.userBadge {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 12px;
 }
 .userName {
   font-weight: 600;
@@ -193,6 +225,9 @@
     width: 24px;
     height: 24px;
   }
+  .locText {
+    max-width: 52vw;
+  }
   .userName {
     max-width: 140px;
   }
@@ -209,5 +244,8 @@
 @media (max-width: 380px) {
   .userName {
     max-width: 110px;
+  }
+  .locText {
+    max-width: 48vw;
   }
 }
