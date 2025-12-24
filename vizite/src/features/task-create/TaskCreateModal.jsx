@@ -1,15 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import dayjs from "dayjs";
-import { message } from "antd";
+import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import dayjs from 'dayjs';
+import { message } from 'antd';
 
-import styles from "./TaskCreateModal.module.css";
+import styles from './TaskCreateModal.module.css';
 import {
   useCreateTaskMutation,
   useTaskTypesQuery,
   useDietsQuery,
-} from "../../entities/task/queries";
-import { useProductsQuery } from "../../entities/product/queries";
+} from '../../entities/task/queries';
+import { useProductsQuery } from '../../entities/product/queries';
 
 const TYPE_IDS = {
   THERAPY: 3,
@@ -23,72 +23,64 @@ const TYPE_IDS = {
 };
 
 const MEAL_OPTIONS = [
-  { value: "dorucak", label: "DORUČAK" },
-  { value: "rucak", label: "RUČAK" },
-  { value: "vecera", label: "VEČERA" },
+  { value: 'dorucak', label: 'DORUČAK' },
+  { value: 'rucak', label: 'RUČAK' },
+  { value: 'vecera', label: 'VEČERA' },
 ];
 
 const DIET_OPTIONS = [
-  { value: "", label: "... IZABERITE DIJETU" },
-  { value: "Standard", label: "Standard" },
-  { value: "Laka", label: "Laka" },
-  { value: "Dijabetička", label: "Dijabetička" },
-  { value: "Bez glutena", label: "Bez glutena" },
-  { value: "Bez laktoze", label: "Bez laktoze" },
-  { value: "Po preporuci ljekara", label: "Po preporuci ljekara" },
+  { value: '', label: '... IZABERITE DIJETU' },
+  { value: 'Standard', label: 'Standard' },
+  { value: 'Laka', label: 'Laka' },
+  { value: 'Dijabetička', label: 'Dijabetička' },
+  { value: 'Bez glutena', label: 'Bez glutena' },
+  { value: 'Bez laktoze', label: 'Bez laktoze' },
+  { value: 'Po preporuci ljekara', label: 'Po preporuci ljekara' },
 ];
 
-const REPEAT_OPTIONS = ["1", "2", "3", "4", "5", "6", "multi"];
+const REPEAT_OPTIONS = ['1', '2', '3', '4', '5', '6', 'multi'];
 
 const formatDateTimeForServer = (dt) =>
-  dayjs(dt).isValid() ? dayjs(dt).format("YYYY-MM-DD HH:mm:ss") : "";
+  dayjs(dt).isValid() ? dayjs(dt).format('YYYY-MM-DD HH:mm:ss') : '';
 
-export default function TaskCreateModal({
-  open,
-  onClose,
-  patientId,
-  defaultDate,
-}) {
-  const todayStr = (defaultDate && String(defaultDate)) || dayjs().format("YYYY-MM-DD");
-  const [startAt, setStartAt] = useState(`${todayStr}T${dayjs().format("HH:mm")}`);
+export default function TaskCreateModal({ open, onClose, patientId, defaultDate }) {
+  const todayStr = (defaultDate && String(defaultDate)) || dayjs().format('YYYY-MM-DD');
+  const [startAt, setStartAt] = useState(`${todayStr}T${dayjs().format('HH:mm')}`);
   const [typeId, setTypeId] = useState(null);
-  const [repeatChoice, setRepeatChoice] = useState("1");
-  const [customRepeat, setCustomRepeat] = useState("7");
-  const [repeatEveryHours, setRepeatEveryHours] = useState("6");
-  const [note, setNote] = useState("");
+  const [repeatChoice, setRepeatChoice] = useState('1');
+  const [customRepeat, setCustomRepeat] = useState('7');
+  const [repeatEveryHours, setRepeatEveryHours] = useState('6');
+  const [note, setNote] = useState('');
 
   // vrijednosti po vrsti
-  const [therapyName, setTherapyName] = useState("");
-  const [therapyDose, setTherapyDose] = useState("1");
+  const [therapyName, setTherapyName] = useState('');
+  const [therapyDose, setTherapyDose] = useState('1');
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [productTerm, setProductTerm] = useState("");
+  const [productTerm, setProductTerm] = useState('');
   const [productSheetOpen, setProductSheetOpen] = useState(false);
   const [dietSheetOpen, setDietSheetOpen] = useState(false);
 
-  const [tempValue, setTempValue] = useState("");
-  const [pressureSys, setPressureSys] = useState("");
-  const [pressureDia, setPressureDia] = useState("");
-  const [pulseValue, setPulseValue] = useState("");
+  const [tempValue, setTempValue] = useState('');
+  const [pressureSys, setPressureSys] = useState('');
+  const [pressureDia, setPressureDia] = useState('');
+  const [pulseValue, setPulseValue] = useState('');
 
-  const [dietId, setDietId] = useState("");
-  const [dietType, setDietType] = useState("");
-  const [dietSearch, setDietSearch] = useState("");
+  const [dietId, setDietId] = useState('');
+  const [dietType, setDietType] = useState('');
+  const [dietSearch, setDietSearch] = useState('');
   const [meal, setMeal] = useState(MEAL_OPTIONS[0].value);
 
-  const [taskText, setTaskText] = useState("");
-  const [observationText, setObservationText] = useState("");
+  const [taskText, setTaskText] = useState('');
+  const [observationText, setObservationText] = useState('');
 
   const [markDone, setMarkDone] = useState(false);
 
   const { data: types = [], isLoading: typesLoading } = useTaskTypesQuery();
   const { data: diets = [], isLoading: dietsLoading } = useDietsQuery();
-  const { mutateAsync: createTask, isPending } = useCreateTaskMutation(
-    patientId,
-    defaultDate
-  );
+  const { mutateAsync: createTask, isPending } = useCreateTaskMutation(patientId, defaultDate);
 
   // debounce za pretragu proizvoda
-  const [debouncedTerm, setDebouncedTerm] = useState("");
+  const [debouncedTerm, setDebouncedTerm] = useState('');
   useEffect(() => {
     const t = setTimeout(() => setDebouncedTerm(productTerm.trim()), 220);
     return () => clearTimeout(t);
@@ -105,26 +97,26 @@ export default function TaskCreateModal({
   // reset kada se modal otvori
   useEffect(() => {
     if (!open) return;
-    const base = `${todayStr}T${dayjs().format("HH:mm")}`;
+    const base = `${todayStr}T${dayjs().format('HH:mm')}`;
     setStartAt(base);
-    setRepeatChoice("1");
-    setCustomRepeat("7");
-    setRepeatEveryHours("6");
-    setNote("");
-    setTherapyName("");
-    setTherapyDose("1");
+    setRepeatChoice('1');
+    setCustomRepeat('7');
+    setRepeatEveryHours('6');
+    setNote('');
+    setTherapyName('');
+    setTherapyDose('1');
     setSelectedProduct(null);
-    setTempValue("");
-    setPressureSys("");
-    setPressureDia("");
-    setPulseValue("");
-    setDietId("");
-    setDietType("");
-    setDietSearch("");
+    setTempValue('');
+    setPressureSys('');
+    setPressureDia('');
+    setPulseValue('');
+    setDietId('');
+    setDietType('');
+    setDietSearch('');
     setDietSheetOpen(false);
     setMeal(MEAL_OPTIONS[0].value);
-    setTaskText("");
-    setObservationText("");
+    setTaskText('');
+    setObservationText('');
     setMarkDone(false);
   }, [open, todayStr]);
 
@@ -133,8 +125,7 @@ export default function TaskCreateModal({
     if (!open) return;
     if (typeId) return;
     const available = (types || []).filter((t) => t.d_ukljuceno !== 0);
-    const prefer =
-      available.find((t) => t.id === TYPE_IDS.THERAPY) || available[0];
+    const prefer = available.find((t) => t.id === TYPE_IDS.THERAPY) || available[0];
     if (prefer) setTypeId(prefer.id);
   }, [open, typeId, types]);
 
@@ -142,20 +133,17 @@ export default function TaskCreateModal({
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = prev;
     };
   }, [open]);
 
-  const activeTypes = useMemo(
-    () => (types || []).filter((t) => t.d_ukljuceno !== 0),
-    [types]
-  );
+  const activeTypes = useMemo(() => (types || []).filter((t) => t.d_ukljuceno !== 0), [types]);
 
   const currentType = useMemo(
     () => activeTypes.find((t) => t.id === typeId) || activeTypes[0],
-    [activeTypes, typeId]
+    [activeTypes, typeId],
   );
 
   useEffect(() => {
@@ -164,7 +152,7 @@ export default function TaskCreateModal({
 
   const repeatCount = useMemo(() => {
     if (currentType?.id === TYPE_IDS.DIET) return 1;
-    if (repeatChoice === "multi") {
+    if (repeatChoice === 'multi') {
       const n = Number(customRepeat || 0);
       return n > 0 ? n : 1;
     }
@@ -180,9 +168,7 @@ export default function TaskCreateModal({
     const list = [];
     for (let i = 0; i < repeatCount; i += 1) {
       const dt =
-        i === 0 || repeatCount === 1
-          ? start
-          : start.add(Math.max(intervalHours, 1) * i, "hour");
+        i === 0 || repeatCount === 1 ? start : start.add(Math.max(intervalHours, 1) * i, 'hour');
       list.push(dt);
     }
     return list;
@@ -191,11 +177,11 @@ export default function TaskCreateModal({
   const formatOccurrence = (d) =>
     dayjs(d).isValid()
       ? currentType?.id === TYPE_IDS.DIET
-        ? dayjs(d).format("DD.MM.YYYY")
-        : dayjs(d).format("DD.MM. HH:mm")
-      : "";
+        ? dayjs(d).format('DD.MM.YYYY')
+        : dayjs(d).format('DD.MM. HH:mm')
+      : '';
 
-  const typeLabel = (t) => t?.naziv || t?.opis || "Vrsta";
+  const typeLabel = (t) => t?.naziv || t?.opis || 'Vrsta';
   const isDiet = currentType?.id === TYPE_IDS.DIET;
 
   const dietOptions = useMemo(() => {
@@ -203,10 +189,7 @@ export default function TaskCreateModal({
     if (Array.isArray(diets)) {
       diets.forEach((d) => {
         const label =
-          d.dijeta_naz ||
-          d.dijeta_skraceni_naz ||
-          d.dijeta_sif ||
-          `Dijeta #${d.dijeta_id}`;
+          d.dijeta_naz || d.dijeta_skraceni_naz || d.dijeta_sif || `Dijeta #${d.dijeta_id}`;
         opts.push({
           value: String(d.dijeta_id),
           label,
@@ -219,23 +202,19 @@ export default function TaskCreateModal({
   const filteredDietOptions = useMemo(() => {
     if (!dietSearch.trim()) return dietOptions;
     const term = dietSearch.toLowerCase();
-    return dietOptions.filter((o) => (o.label || "").toLowerCase().includes(term));
+    return dietOptions.filter((o) => (o.label || '').toLowerCase().includes(term));
   }, [dietOptions, dietSearch]);
 
   const selectDiet = (opt) => {
     if (!opt) return;
     setDietId(String(opt.value));
-    setDietType(opt.label || "");
-    setDietSearch(opt.label || "");
+    setDietType(opt.label || '');
+    setDietSearch(opt.label || '');
     setDietSheetOpen(false);
   };
 
   const canSubmit =
-    !!patientId &&
-    !!currentType &&
-    !!occurrenceList.length &&
-    !typesLoading &&
-    !isPending;
+    !!patientId && !!currentType && !!occurrenceList.length && !typesLoading && !isPending;
 
   const handleSelectProduct = (p) => {
     setSelectedProduct(p);
@@ -244,9 +223,9 @@ export default function TaskCreateModal({
   };
 
   const buildPayloads = () => {
-    if (!patientId) throw new Error("Nedostaje pacijent.");
-    if (!currentType) throw new Error("Odaberite vrstu zadatka.");
-    if (!occurrenceList.length) throw new Error("Nedostaje vrijeme zadatka.");
+    if (!patientId) throw new Error('Nedostaje pacijent.');
+    if (!currentType) throw new Error('Odaberite vrstu zadatka.');
+    if (!occurrenceList.length) throw new Error('Nedostaje vrijeme zadatka.');
 
     const base = {
       patient_id: patientId,
@@ -267,31 +246,31 @@ export default function TaskCreateModal({
 
     const cleanedNumber = (v) => {
       if (v === null || v === undefined) return null;
-      const s = String(v).trim().replace(",", ".");
-      if (s === "") return null;
+      const s = String(v).trim().replace(',', '.');
+      if (s === '') return null;
       return s;
     };
 
     if (currentType.id === TYPE_IDS.THERAPY) {
-      if (!therapyName.trim()) throw new Error("Unesite naziv lijeka/terapije.");
+      if (!therapyName.trim()) throw new Error('Unesite naziv lijeka/terapije.');
       occurrenceList.forEach((dt) =>
         pushPayload(dt, {
           vrijednost: therapyName.trim(),
           kolicina: cleanedNumber(therapyDose),
           id_ref: selectedProduct?.id,
           status: 0,
-        })
+        }),
       );
     } else if (currentType.id === TYPE_IDS.TEMP) {
       occurrenceList.forEach((dt) => {
         const val = cleanedNumber(tempValue);
         const status = val ? 1 : commonStatus;
         if (status === 1 && !val) {
-          throw new Error("Unesite izmjerenu temperaturu ili iskljucite oznaci kao izvrseno.");
+          throw new Error('Unesite izmjerenu temperaturu ili iskljucite oznaci kao izvrseno.');
         }
         pushPayload(dt, {
-          vrijednost: val || "",
-          jedinica: "°C",
+          vrijednost: val || '',
+          jedinica: '°C',
           status,
         });
       });
@@ -302,11 +281,11 @@ export default function TaskCreateModal({
         const hasVal = sys && dia;
         const status = hasVal ? 1 : commonStatus;
         if (status === 1 && (!sys || !dia)) {
-          throw new Error("Unesite i gornji i donji pritisak.");
+          throw new Error('Unesite i gornji i donji pritisak.');
         }
         pushPayload(dt, {
-          vrijednost: hasVal ? `${sys}/${dia}` : "",
-          jedinica: "mmHg",
+          vrijednost: hasVal ? `${sys}/${dia}` : '',
+          jedinica: 'mmHg',
           status,
         });
       });
@@ -315,21 +294,22 @@ export default function TaskCreateModal({
         const val = cleanedNumber(pulseValue);
         const status = val ? 1 : commonStatus;
         if (status === 1 && !val) {
-          throw new Error("Unesite izmjereni puls ili ostavite prazno ako zadatak jos nije izvrsen.");
+          throw new Error(
+            'Unesite izmjereni puls ili ostavite prazno ako zadatak jos nije izvrsen.',
+          );
         }
         pushPayload(dt, {
-          vrijednost: val || "",
-          jedinica: "/min",
+          vrijednost: val || '',
+          jedinica: '/min',
           status,
         });
       });
     } else if (currentType.id === TYPE_IDS.DIET) {
-      if (!dietId) throw new Error("Odaberite dijetu.");
-      const mealLabel =
-        MEAL_OPTIONS.find((m) => m.value === meal)?.label || "OBROK";
-      const diet = dietType || "Dijeta";
+      if (!dietId) throw new Error('Odaberite dijetu.');
+      const mealLabel = MEAL_OPTIONS.find((m) => m.value === meal)?.label || 'OBROK';
+      const diet = dietType || 'Dijeta';
       occurrenceList.forEach((dt) => {
-        const dateOnly = dayjs(dt).startOf("day");
+        const dateOnly = dayjs(dt).startOf('day');
         pushPayload(dateOnly, {
           vrijednost: `${diet} - ${mealLabel}`,
           id_ref: Number(dietId),
@@ -338,28 +318,27 @@ export default function TaskCreateModal({
         });
       });
     } else if (currentType.id === TYPE_IDS.TASK) {
-      if (!taskText.trim()) throw new Error("Opis zadatka je obavezan.");
+      if (!taskText.trim()) throw new Error('Opis zadatka je obavezan.');
       occurrenceList.forEach((dt) =>
         pushPayload(dt, {
           vrijednost: taskText.trim(),
           status: commonStatus,
-        })
+        }),
       );
     } else if (currentType.id === TYPE_IDS.NOTE) {
-      if (!observationText.trim())
-        throw new Error("Upišite opis zapažanja.");
+      if (!observationText.trim()) throw new Error('Upišite opis zapažanja.');
       occurrenceList.forEach((dt) =>
         pushPayload(dt, {
           vrijednost: observationText.trim(),
           status: commonStatus,
-        })
+        }),
       );
     } else {
       // fallback za druge tipove
       occurrenceList.forEach((dt) =>
         pushPayload(dt, {
           status: commonStatus,
-        })
+        }),
       );
     }
 
@@ -371,10 +350,10 @@ export default function TaskCreateModal({
     try {
       const payloads = buildPayloads();
       await Promise.all(payloads.map((p) => createTask(p)));
-      message.success("Zadaci su kreirani.");
+      message.success('Zadaci su kreirani.');
       onClose?.();
     } catch (err) {
-      message.error(err?.message || "Greška pri kreiranju zadatka.");
+      message.error(err?.message || 'Greška pri kreiranju zadatka.');
     }
   };
 
@@ -387,15 +366,10 @@ export default function TaskCreateModal({
           <div>
             <p className={styles.overline}>Novi zadatak</p>
             <h2 className={styles.title}>
-              {currentType ? typeLabel(currentType) : "Odabir vrste"}
+              {currentType ? typeLabel(currentType) : 'Odabir vrste'}
             </h2>
           </div>
-          <button
-            type="button"
-            className={styles.closeBtn}
-            onClick={onClose}
-            aria-label="Zatvori"
-          >
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Zatvori">
             ×
           </button>
         </header>
@@ -407,9 +381,7 @@ export default function TaskCreateModal({
                 <p className={styles.sectionOver}>Vrsta zadatka</p>
                 <h3 className={styles.sectionTitle}>Šta treba uraditi?</h3>
               </div>
-              {typesLoading && (
-                <span className={styles.muted}>Učitavam šifrarnik…</span>
-              )}
+              {typesLoading && <span className={styles.muted}>Učitavam šifrarnik…</span>}
             </div>
             <div className={styles.typeGrid}>
               {activeTypes.map((t) => {
@@ -418,9 +390,7 @@ export default function TaskCreateModal({
                   <button
                     key={t.id}
                     type="button"
-                    className={`${styles.typeCard} ${
-                      active ? styles.typeCardActive : ""
-                    }`}
+                    className={`${styles.typeCard} ${active ? styles.typeCardActive : ''}`}
                     onClick={() => setTypeId(t.id)}
                   >
                     <span className={styles.typeName}>{typeLabel(t)}</span>
@@ -428,91 +398,6 @@ export default function TaskCreateModal({
                 );
               })}
             </div>
-          </section>
-
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <div>
-                <p className={styles.sectionOver}>Raspored</p>
-                <h3 className={styles.sectionTitle}>Kada?</h3>
-              </div>
-            </div>
-
-            <label className={styles.fieldLabel}>
-              {isDiet ? "Datum" : "Datum i vrijeme početka"}
-            </label>
-            <input
-              className={styles.input}
-              type={isDiet ? "date" : "datetime-local"}
-              value={isDiet ? startAt?.slice(0, 10) : startAt}
-              onChange={(e) =>
-                isDiet
-                  ? setStartAt(e.target.value ? `${e.target.value}T00:00` : "")
-                  : setStartAt(e.target.value)
-              }
-              required
-            />
-
-            {!isDiet ? (
-              <div className={styles.repeatRow}>
-                <div className={styles.repeatGroup}>
-                  <p className={styles.fieldLabel}>Broj ponavljanja</p>
-                  <div className={styles.chips}>
-                    {REPEAT_OPTIONS.map((opt) => (
-                      <button
-                        type="button"
-                        key={opt}
-                        className={`${styles.chip} ${
-                          repeatChoice === opt ? styles.chipActive : ""
-                        }`}
-                        onClick={() => setRepeatChoice(opt)}
-                      >
-                        {opt === "multi" ? "Više termina" : `${opt}x`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {repeatChoice === "multi" ? (
-                  <div className={styles.inlineField}>
-                    <label className={styles.fieldLabel}>Ukupno termina</label>
-                    <input
-                      className={styles.input}
-                      type="number"
-                      min="2"
-                      value={customRepeat}
-                      onChange={(e) => setCustomRepeat(e.target.value)}
-                    />
-                  </div>
-                ) : null}
-
-                {repeatCount > 1 ? (
-                  <div className={styles.inlineField}>
-                    <label className={styles.fieldLabel}>
-                      Na svako koliko sati
-                    </label>
-                    <input
-                      className={styles.input}
-                      type="number"
-                      min="1"
-                      value={repeatEveryHours}
-                      onChange={(e) => setRepeatEveryHours(e.target.value)}
-                    />
-                  </div>
-                ) : null}
-
-                <div className={styles.schedulePreview}>
-                  <p className={styles.muted}>Planirana vremena</p>
-                  <div className={styles.badgeRow}>
-                    {occurrenceList.map((dt, idx) => (
-                      <span key={idx} className={styles.badge}>
-                        {formatOccurrence(dt)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </section>
 
           {/* Dinamički dio po vrsti */}
@@ -546,7 +431,7 @@ export default function TaskCreateModal({
                   setProductTerm(val);
                   if (val && products.length) {
                     const match = products.find(
-                      (p) => (p.ime || "").toLowerCase() === val.toLowerCase()
+                      (p) => (p.ime || '').toLowerCase() === val.toLowerCase(),
                     );
                     if (match) {
                       handleSelectProduct(match);
@@ -563,14 +448,12 @@ export default function TaskCreateModal({
               {therapyName.trim().length >= 2 && !!products.length ? (
                 <datalist id="productOptions">
                   {products.map((p) => (
-                    <option key={p.id} value={p.ime || ""} />
+                    <option key={p.id} value={p.ime || ''} />
                   ))}
                 </datalist>
               ) : null}
 
-              <label className={styles.fieldLabel}>
-                Količina / doza (opciono)
-              </label>
+              <label className={styles.fieldLabel}>Količina / doza (opciono)</label>
               <input
                 className={styles.input}
                 type="number"
@@ -587,8 +470,8 @@ export default function TaskCreateModal({
                     <p className={styles.smallLabel}>Odabrani lijek</p>
                     <p className={styles.selectedTitle}>{selectedProduct.ime}</p>
                     <p className={styles.muted}>
-                      Šifra: {selectedProduct.sifra || "—"} · Jedinica:{" "}
-                      {selectedProduct.jedmj || "—"}
+                      Šifra: {selectedProduct.sifra || '—'} · Jedinica:{' '}
+                      {selectedProduct.jedmj || '—'}
                     </p>
                   </div>
                   <button
@@ -603,6 +486,89 @@ export default function TaskCreateModal({
             </section>
           )}
 
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <div>
+                <p className={styles.sectionOver}>Raspored</p>
+                <h3 className={styles.sectionTitle}>Kada?</h3>
+              </div>
+            </div>
+
+            <label className={styles.fieldLabel}>
+              {isDiet ? 'Datum' : 'Datum i vrijeme početka'}
+            </label>
+            <input
+              className={styles.input}
+              type={isDiet ? 'date' : 'datetime-local'}
+              value={isDiet ? startAt?.slice(0, 10) : startAt}
+              onChange={(e) =>
+                isDiet
+                  ? setStartAt(e.target.value ? `${e.target.value}T00:00` : '')
+                  : setStartAt(e.target.value)
+              }
+              required
+            />
+
+            {!isDiet ? (
+              <div className={styles.repeatRow}>
+                <div className={styles.repeatGroup}>
+                  <p className={styles.fieldLabel}>Broj ponavljanja</p>
+                  <div className={styles.chips}>
+                    {REPEAT_OPTIONS.map((opt) => (
+                      <button
+                        type="button"
+                        key={opt}
+                        className={`${styles.chip} ${
+                          repeatChoice === opt ? styles.chipActive : ''
+                        }`}
+                        onClick={() => setRepeatChoice(opt)}
+                      >
+                        {opt === 'multi' ? 'Više termina' : `${opt}x`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {repeatChoice === 'multi' ? (
+                  <div className={styles.inlineField}>
+                    <label className={styles.fieldLabel}>Ukupno termina</label>
+                    <input
+                      className={styles.input}
+                      type="number"
+                      min="2"
+                      value={customRepeat}
+                      onChange={(e) => setCustomRepeat(e.target.value)}
+                    />
+                  </div>
+                ) : null}
+
+                {repeatCount > 1 ? (
+                  <div className={styles.inlineField}>
+                    <label className={styles.fieldLabel}>Na svako koliko sati</label>
+                    <input
+                      className={styles.input}
+                      type="number"
+                      min="1"
+                      value={repeatEveryHours}
+                      onChange={(e) => setRepeatEveryHours(e.target.value)}
+                    />
+                  </div>
+                ) : null}
+
+                <div className={styles.schedulePreview}>
+                  <p className={styles.muted}>Planirana vremena</p>
+                  <div className={styles.badgeRow}>
+                    {occurrenceList.map((dt, idx) => (
+                      <span key={idx} className={styles.badge}>
+                        {formatOccurrence(dt)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
           {currentType?.id === TYPE_IDS.TEMP && (
             <section className={styles.section}>
               <div className={styles.sectionHead}>
@@ -612,9 +578,7 @@ export default function TaskCreateModal({
                 </div>
               </div>
               <div className={styles.inlineField}>
-                <label className={styles.fieldLabel}>
-                  Izmjerena temperatura (opciono)
-                </label>
+                <label className={styles.fieldLabel}>Izmjerena temperatura (opciono)</label>
                 <div className={styles.valueRow}>
                   <input
                     className={styles.input}
@@ -647,9 +611,7 @@ export default function TaskCreateModal({
                   <h3 className={styles.sectionTitle}>Plan mjerenja</h3>
                 </div>
               </div>
-              <label className={styles.fieldLabel}>
-                Izmjereni pritisak (opciono)
-              </label>
+              <label className={styles.fieldLabel}>Izmjereni pritisak (opciono)</label>
               <div className={styles.pressureRow}>
                 <input
                   className={styles.input}
@@ -690,9 +652,7 @@ export default function TaskCreateModal({
                 </div>
               </div>
               <div className={styles.inlineField}>
-                <label className={styles.fieldLabel}>
-                  Izmjereni puls (opciono)
-                </label>
+                <label className={styles.fieldLabel}>Izmjereni puls (opciono)</label>
                 <div className={styles.valueRow}>
                   <input
                     className={styles.input}
@@ -745,26 +705,26 @@ export default function TaskCreateModal({
                       setDietSearch(val);
                       const match = val
                         ? filteredDietOptions.find(
-                            (o) => (o.label || "").toLowerCase() === val.toLowerCase()
+                            (o) => (o.label || '').toLowerCase() === val.toLowerCase(),
                           )
                         : null;
                       if (match) {
                         selectDiet(match);
                       } else {
-                        setDietId("");
-                        setDietType("");
+                        setDietId('');
+                        setDietType('');
                       }
                     }}
                   />
-                {!!dietSearch.trim().length && (
-                  <datalist id="dietOptionsList" style={{ width: "100%" }}>
-                    {filteredDietOptions
-                      .filter((o) => o.value)
-                      .map((opt) => (
-                        <option key={opt.value} value={opt.label} />
-                      ))}
-                  </datalist>
-                )}
+                  {!!dietSearch.trim().length && (
+                    <datalist id="dietOptionsList" style={{ width: '100%' }}>
+                      {filteredDietOptions
+                        .filter((o) => o.value)
+                        .map((opt) => (
+                          <option key={opt.value} value={opt.label} />
+                        ))}
+                    </datalist>
+                  )}
                 </div>
               </div>
 
@@ -833,19 +793,11 @@ export default function TaskCreateModal({
           </section>
 
           <div className={styles.actionBar}>
-            <button
-              type="button"
-              className={styles.secondaryBtn}
-              onClick={onClose}
-            >
+            <button type="button" className={styles.secondaryBtn} onClick={onClose}>
               Odustani
             </button>
-            <button
-              type="submit"
-              className={styles.primaryBtn}
-              disabled={!canSubmit}
-            >
-              {isPending ? "Spašavam..." : "Sačuvaj zadatke"}
+            <button type="submit" className={styles.primaryBtn} disabled={!canSubmit}>
+              {isPending ? 'Spašavam...' : 'Sačuvaj zadatke'}
             </button>
           </div>
         </form>
@@ -885,8 +837,7 @@ export default function TaskCreateModal({
                   >
                     <div className={styles.productTitle}>{p.ime}</div>
                     <div className={styles.productMeta}>
-                      Šifra: {p.sifra || "—"} · ATC: {p.atc || "—"} · Jed:
-                      {" "}{p.jedmj || "—"}
+                      Šifra: {p.sifra || '—'} · ATC: {p.atc || '—'} · Jed: {p.jedmj || '—'}
                     </div>
                   </button>
                 ))
@@ -938,6 +889,6 @@ export default function TaskCreateModal({
         ) : null}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

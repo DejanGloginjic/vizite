@@ -52,12 +52,19 @@ canvas {
   /* header height hint (ako treba u layout-u) */
   --hdr-h: 64px;
   --container-pad: 16px;
+  --font-base: 17px;
 }
 
 /* Phone tweaks */
 @media (max-width: 480px) {
   :root {
     --container-pad: 12px;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --font-base: 18px;
   }
 }
 
@@ -69,8 +76,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-size: 16px; /* čitljivo na tabletu/mobilnom */
-  line-height: 1.4;
+  font-size: var(--font-base); /* čitljivo na tabletu/mobilnom */
+  line-height: 1.45;
 }
 
 /* Links */

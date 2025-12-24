@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Select } from 'antd';
 import styles from './ChooseClinicPage.module.css';
 import { useUserStoragesQuery } from '../../entities/storage/queries';
 import { useSetWorkingLocation } from '../../entities/storage/queries';
@@ -14,6 +13,9 @@ export default function ChooseClinicPage() {
 
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [selectedStorageId, setSelectedStorageId] = useState(null);
+  const [groupSheetOpen, setGroupSheetOpen] = useState(false);
+  const [groupSearch, setGroupSearch] = useState('');
+
   const groups = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const groupsCount = groups.length;
 
@@ -23,10 +25,19 @@ export default function ChooseClinicPage() {
   );
 
   const storages = useMemo(() => currentGroup?.skladista ?? [], [currentGroup]);
+  const filteredGroups = useMemo(() => {
+    const term = groupSearch.trim().toLowerCase();
+    if (!term) return groups;
+    return groups.filter((g) => {
+      const label = `${g.naziv || ''} ${g.mjesto || ''}`.toLowerCase();
+      return label.includes(term);
+    });
+  }, [groupSearch, groups]);
 
   const handleSelectGroup = (value) => {
     setSelectedGroupId(value);
     setSelectedStorageId(null);
+    setGroupSheetOpen(false);
   };
 
   const handleConfirmSelection = (storageId) => {
@@ -95,21 +106,79 @@ export default function ChooseClinicPage() {
                   Klinika / organizaciona jedinica
                 </label>
                 {groupsCount > 3 ? (
-                  <Select
-                    id="group-select"
-                    showSearch
-                    placeholder="Odaberite kliniku"
-                    className={styles.select}
-                    value={selectedGroupId ?? undefined}
-                    onChange={handleSelectGroup}
-                    filterOption={(input, option) =>
-                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                    }
-                    options={groups.map((g) => ({
-                      value: g.id,
-                      label: g.mjesto ? `${g.naziv} · ${g.mjesto}` : g.naziv,
-                    }))}
-                  />
+                  <>
+                    <button
+                      type="button"
+                      className={styles.sheetTrigger}
+                      onClick={() => setGroupSheetOpen(true)}
+                    >
+                      {selectedGroupId
+                        ? (() => {
+                            const g =
+                              groups.find((x) => String(x.id) === String(selectedGroupId)) || {};
+                            return g.mjesto ? `${g.naziv} · ${g.mjesto}` : g.naziv || 'Odaberite';
+                          })()
+                        : 'Odaberite kliniku'}
+                    </button>
+                    {groupSheetOpen ? (
+                      <div
+                        className={styles.sheetOverlay}
+                        role="dialog"
+                        aria-modal="true"
+                        onClick={() => setGroupSheetOpen(false)}
+                      >
+                        <div
+                          className={styles.sheetPanel}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className={styles.sheetHeader}>
+                            <h3 className={styles.sheetTitle}>Odaberite kliniku</h3>
+                            <button
+                              type="button"
+                              className={styles.sheetClose}
+                              onClick={() => setGroupSheetOpen(false)}
+                              aria-label="Zatvori"
+                            >
+                              ×
+                            </button>
+                          </div>
+                          <div className={styles.sheetSearchWrap}>
+                            <input
+                              type="search"
+                              className={styles.sheetSearch}
+                              placeholder="Pretraga klinika"
+                              value={groupSearch}
+                              onChange={(e) => setGroupSearch(e.target.value)}
+                              autoFocus
+                            />
+                          </div>
+                          <div className={styles.sheetList} role="list">
+                            {filteredGroups.length === 0 ? (
+                              <div className={styles.emptyInline}>Nema rezultata.</div>
+                            ) : (
+                              filteredGroups.map((g) => {
+                                const active = String(g.id) === String(selectedGroupId);
+                                const cls = active ? styles.storageItemActive : styles.storageItem;
+                                const meta = g.mjesto || g.opis || '';
+                                return (
+                                  <button
+                                    key={g.id}
+                                    type="button"
+                                    className={`${cls} ${styles.groupItem}`}
+                                    onClick={() => handleSelectGroup(g.id)}
+                                    role="listitem"
+                                  >
+                                    <div className={styles.storageName}>{g.naziv}</div>
+                                    {meta && <div className={styles.storageMeta}>{meta}</div>}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
                 ) : (
                   <div className={styles.groupList}>
                     {groups.map((g) => {

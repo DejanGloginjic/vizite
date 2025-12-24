@@ -714,9 +714,9 @@
                 k.id          AS krevet_id,
                 k.broj_kreveta,
 
-                0 AS task_total,
-                0 AS task_done,
-                0 AS task_overdue
+                COALESCE(td.task_total, 0) AS task_total,
+                COALESCE(td.task_done, 0) AS task_done,
+                COALESCE(td.task_overdue, 0) AS task_overdue
 
             FROM pacijenti p
 
@@ -729,6 +729,22 @@
                 <cfif skladisteId>
                     AND e.skladiste = <cfqueryparam cfsqltype="cf_sql_integer" value="#skladisteId#">
                 </cfif>
+
+            LEFT JOIN (
+                SELECT
+                    d.id_pacijenta,
+                    d.id_epizode,
+                    COUNT(*) AS task_total,
+                    SUM(CASE WHEN COALESCE(d.status, 0) = 1 THEN 1 ELSE 0 END) AS task_done,
+                    SUM(CASE WHEN COALESCE(d.status, 0) <> 1 AND d.datum < NOW() THEN 1 ELSE 0 END) AS task_overdue
+                FROM ttd_lista_sadrzaj_detalji d
+                WHERE (d.obrisano = 0 OR d.obrisano IS NULL)
+                  AND d.datum >= <cfqueryparam value="#dt#" cfsqltype="cf_sql_date">
+                  AND d.datum < DATE_ADD(<cfqueryparam value="#dt#" cfsqltype="cf_sql_date">, INTERVAL 1 DAY)
+                GROUP BY d.id_pacijenta, d.id_epizode
+            ) td
+                ON td.id_pacijenta = p.id
+                AND td.id_epizode = e.id
 
             JOIN krevet_detalji kd
                 ON kd.id_pacijenta = p.id

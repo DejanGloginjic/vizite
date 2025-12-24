@@ -1,10 +1,9 @@
 import axios from "axios";
-import { baseUrl, ENV } from "../config/env";
+import { baseUrl } from "../config/env";
 
 export const http = axios.create({
   baseURL: baseUrl,
   withCredentials: true,
-  timeout: ENV.REQUEST_TIMEOUT,
 });
 
 // Jednostavna obrada grešaka

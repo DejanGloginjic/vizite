@@ -9,22 +9,40 @@ function resolveStatus(p, explicit) {
   if (s != null) {
     const v = String(s).toLowerCase();
     if (['overdue', 'late', 'expired', 'kasni', '3'].includes(v)) return 'overdue';
-    if (['open', 'todo', 'pending', 'nedovrseni', 'active', '1'].includes(v)) return 'open';
-    if (['done', 'completed', 'zavrseni', '2'].includes(v)) return 'done';
-    if (['none', '0', 'no'].includes(v)) return 'none';
+    if (
+      [
+        'open',
+        'todo',
+        'pending',
+        'nedovrseni',
+        'active',
+        'otvoren',
+        'u_toku',
+        'in_progress',
+        'inprogress',
+        '1',
+      ].includes(v)
+    )
+      return 'open';
+    if (['done', 'completed', 'zavrseni', 'izvrseni', 'izvrseno', 'gotovo', '2'].includes(v))
+      return 'done';
+    if (['none', '0', 'no', 'nema', 'bez'].includes(v)) return 'none';
   }
 
   const total = p?.task_total ?? p?.tasks_total ?? p?.zadaci_ukupno ?? null;
   const done = p?.task_done ?? p?.tasks_done ?? p?.zadaci_gotovo ?? null;
   const overdue = p?.task_overdue ?? p?.tasks_overdue ?? p?.zadaci_kasne ?? 0;
+  const totalNum = total === null || total === '' ? null : Number(total);
+  const doneNum = done === null || done === '' ? null : Number(done);
+  const overdueNum = overdue === null || overdue === '' ? 0 : Number(overdue);
 
-  if (typeof total === 'number') {
-    if (total === 0) return 'none';
-    if (Number(overdue) > 0) return 'overdue';
-    if (typeof done === 'number' && done >= total) return 'done';
+  if (Number.isFinite(totalNum)) {
+    if (totalNum <= 0) return 'none';
+    if (overdueNum > 0) return 'overdue';
+    if (Number.isFinite(doneNum) && doneNum >= totalNum) return 'done';
     return 'open';
   }
-  if (Number(overdue) > 0) return 'overdue';
+  if (overdueNum > 0) return 'overdue';
   return 'none';
 }
 

@@ -1,33 +1,16 @@
 // src/shared/ui/Header/Header.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import styles from './Header.module.css';
 import logo from '../../../assets/logo.svg';
 import { useSession } from '../../../app/providers/SessionContext';
 import { ENV } from '../../config/env';
+import { useUserStoragesQuery } from '../../../entities/storage/queries';
 
-function getUserNameFromSession(s) {
-  if (!s) return '';
-  return (
-    s.ime_korisnika || s.potpis_korisnika || [s.ime, s.prezime].filter(Boolean).join(' ') || ''
-  );
-}
-
-function getInitials(name) {
-  if (!name) return '?';
-  const parts = name.trim().split(/\s+/);
-  if (!parts.length) return '?';
-  const first = parts[0]?.[0] || '';
-  const last = parts[parts.length - 1]?.[0] || '';
-  return (first + last).toUpperCase() || first.toUpperCase() || '?';
-}
-
-export default function Header() {
+export default function Header({ onOpenLocation }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { session } = useSession() || { session: null };
-  const userName = (getUserNameFromSession(session) || 'Korisnik').trim();
-  const clientName = session?.naziv_klijenta || '';
 
   const [selection, setSelection] = useState(() => {
     try {
@@ -43,18 +26,51 @@ export default function Header() {
         setSelection(e.newValue ? JSON.parse(e.newValue) : null);
       }
     };
+    const onCustom = () => {
+      try {
+        setSelection(JSON.parse(localStorage.getItem('vizite.clinicSelection')) || null);
+      } catch {
+        setSelection(null);
+      }
+    };
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener('vizite-selection-changed', onCustom);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('vizite-selection-changed', onCustom);
+    };
   }, []);
 
   const grupaId = selection?.grupaId ?? session?.izabrana_grupa_skladista ?? null;
   const skladisteId = selection?.skladisteId ?? session?.izabrano_skladiste ?? null;
-  const initials = getInitials(userName);
 
-  const locationLabel =
-    grupaId || skladisteId
-      ? `Grupa ${grupaId ?? '—'} · Skladište ${skladisteId ?? '—'}`
-      : 'Odaberite lokaciju';
+  const { data: groupsData = [], isLoading: groupsLoading } = useUserStoragesQuery();
+  const groups = useMemo(() => (Array.isArray(groupsData) ? groupsData : []), [groupsData]);
+
+  const activeGroup = useMemo(() => {
+    if (!grupaId) return null;
+    return groups.find((g) => String(g.id) === String(grupaId)) || null;
+  }, [groups, grupaId]);
+
+  const activeStorage = useMemo(() => {
+    if (!skladisteId) return null;
+    const fromGroup = activeGroup?.skladista?.find(
+      (s) => String(s.id) === String(skladisteId),
+    );
+    if (fromGroup) return fromGroup;
+    for (const g of groups) {
+      const match = g?.skladista?.find((s) => String(s.id) === String(skladisteId));
+      if (match) return match;
+    }
+    return null;
+  }, [groups, activeGroup, skladisteId]);
+
+  const hasSelection = Boolean(grupaId || skladisteId);
+  const groupValue =
+    activeGroup?.naziv || (groupsLoading ? 'Ucitavanje...' : grupaId ? 'ID ' + grupaId : '-');
+  const storageValue =
+    activeStorage?.naziv ||
+    (groupsLoading ? 'Ucitavanje...' : skladisteId ? 'ID ' + skladisteId : '-');
 
   const logoutUrl =
     (typeof window !== 'undefined' && window.__LOGOUT_URL__) ||
@@ -62,6 +78,10 @@ export default function Header() {
     '../../pocetna.cfm';
 
   const handleExit = () => {
+    if (onOpenLocation) {
+      onOpenLocation();
+      return;
+    }
     const onChoose = location.pathname === '/' || location.pathname === '/choose';
     if (onChoose) {
       if (logoutUrl) {
@@ -78,10 +98,7 @@ export default function Header() {
         <div className={styles.brandWrap}>
           <Link to="/" className={styles.brandLink} aria-label="Početna">
             <img src={logo} alt="Vizita" className={styles.logo} />
-            <div className={styles.brandText}>
-              <span className={styles.appName}>Vizita</span>
-              {clientName ? <span className={styles.clientName}>{clientName}</span> : null}
-            </div>
+            <span className={styles.appName}>Vizita</span>
           </Link>
         </div>
 
@@ -89,28 +106,27 @@ export default function Header() {
           <button
             type="button"
             className={styles.locationCard}
-            onClick={() => navigate('/')}
+            onClick={() => (onOpenLocation ? onOpenLocation() : navigate('/'))}
             title="Promjena lokacije"
           >
-            <span className={styles.locDot} aria-hidden />
-            <span className={styles.locText}>{locationLabel}</span>
-          </button>
-
-          <div className={styles.userCard} title={userName} aria-label={userName}>
-            <span className={styles.userBadge} aria-hidden>
-              {initials}
+            <span className={styles.locText}>
+              {hasSelection ? (
+                <>
+                  <span className={styles.locPrimary}>{groupValue}</span>
+                  <span className={styles.locSecondary}>{storageValue}</span>
+                </>
+              ) : (
+                <span className={styles.locSingle}>Odaberite lokaciju</span>
+              )}
             </span>
-            <div className={styles.userName} title={userName}>
-              {userName}
-            </div>
-          </div>
+          </button>
 
           <button
             type="button"
             className={styles.iconBtn}
             onClick={handleExit}
-            title="Izlaz / promjena lokacije"
-            aria-label="Izlaz ili promjena lokacije"
+            title="Login / promjena"
+            aria-label="Login ili promjena lokacije"
           >
             <svg viewBox="0 0 24 24" className={styles.icon} aria-hidden="true">
               <path

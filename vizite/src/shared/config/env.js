@@ -24,7 +24,6 @@ export const ENV = {
   API_BASE_URL,
   DOC_VIEWER_BASE_URL,
   LOGOUT_URL: import.meta.env.VITE_LOGOUT_URL || "",
-  REQUEST_TIMEOUT: Number(import.meta.env.VITE_REQUEST_TIMEOUT) || 15000,
 
   // mock sesija: default dev=on, prod=off (možeš override-ovati u .env)
   USE_MOCK_SESSION: (import.meta.env.VITE_USE_MOCK_SESSION ?? (isProd ? '0' : '1')) === '1',

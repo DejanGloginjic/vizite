@@ -18,7 +18,7 @@
 /* Naslov – isti tvoj stil, malo responsivan */
 .h2 {
   margin: 0;
-  font-size: clamp(16px, 2.1vw, 20px);
+  font-size: clamp(18px, 2.2vw, 22px);
   font-weight: 900;
   letter-spacing: 0.2px;
   color: var(--fg, #0f172a);
@@ -35,15 +35,40 @@
 
 /* AntD Input.Search i Select – full width na telefonu */
 .patientSearch,
-.roomSelect {
+.roomSelectBtn {
   width: 100%;
+}
+
+.scannerInput {
+  position: absolute !important;
+  left: -9999px;
+  top: -9999px;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0;
+  pointer-events: none;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+}
+
+.roomSelectBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 48px;
+  border-radius: 12px;
+  font-weight: 700;
+  padding: 0 16px;
+  font-size: 15px;
 }
 
 /* mali status / meta-info (ako je koristiš) */
 .refresh,
 .metaInfo {
   color: var(--muted, #6b7280);
-  font-size: 12px;
+  font-size: 13px;
   margin-top: 4px;
 }
 
@@ -68,7 +93,7 @@
   }
 
   .h2 {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 800;
   }
 }
@@ -93,8 +118,16 @@
     max-width: 220px;
   }
 
-  .roomSelect {
+  .roomSelectBtn {
     min-width: 190px;
     max-width: 240px;
+  }
+}
+
+@media (min-width: 768px) {
+  .roomSelectBtn {
+    height: 52px;
+    font-size: 16px;
+    padding: 0 18px;
   }
 }

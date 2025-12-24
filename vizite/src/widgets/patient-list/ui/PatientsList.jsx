@@ -15,7 +15,7 @@ export default function PatientsList({
   const rowVirtualizer = useVirtualizer({
     count,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 60, // kompaktnije, ali dovoljno za avatar
+    estimateSize: () => 78,
     overscan: 8,
     measureElement: (el) => el.getBoundingClientRect().height,
   });
@@ -52,7 +52,6 @@ export default function PatientsList({
               className={styles.virtualRow}
               style={{
                 transform: `translateY(${vRow.start}px)`,
-                height: vRow.size,
               }}
             >
               <PatientItem

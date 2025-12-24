@@ -1,93 +1,110 @@
-/* kompaktan card sa tankom akcent-linijom lijevo (kada postoji upozorenje) */
+/* kompaktan card sa modernim, cistim layoutom */
 .card {
-  position: relative;
-  padding: 8px 10px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--panel);
-}
-.card::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--accent, transparent);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  display: grid;
+  gap: 12px;
 }
 
 .top {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
   align-items: baseline;
-  gap: 8px;
-}
-
-/* ime + datum/godine u istom redu */
-.nameLine {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 10px;
   min-width: 0;
-  flex-wrap: wrap; /* ako je tijesno, lijepo prelomi */
 }
 .name {
   margin: 0;
-  font-size: 16.5px;
+  font-size: 18px;
   line-height: 1.15;
   font-weight: 800;
   color: var(--fg, #0f172a);
   letter-spacing: 0.1px;
   min-width: 0;
-}
-.inlineDob {
-  color: var(--muted, #64748b);
-  font-weight: 600;
-  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.age {
-  font-weight: 500;
-}
 
-/* diskretan warn tag desno */
-.warnTag {
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.metaItem {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #f8fafc;
+  min-width: 0;
+}
+.metaCompact {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid #fecaca;
-  background: #fff1f2;
-  color: #b91c1c;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
+  gap: 6px;
+  min-height: 18px;
+  min-width: 0;
 }
-
-/* JMBG ispod */
-.jmbgLine {
-  margin-top: 4px;
+.metaIcon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--muted, #64748b);
-  font-size: 12.5px;
-  line-height: 1.2;
+  flex-shrink: 0;
+}
+.metaIcon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.metaLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.metaValue {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg, #0f172a);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.metaValueMono {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg, #0f172a);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+    monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.2px;
+}
 
-/* telefon */
 @media (max-width: 640px) {
   .card {
-    padding: 8px;
+    padding: 12px;
+    gap: 10px;
   }
   .name {
-    font-size: 16px;
+    font-size: 17px;
   }
-  .inlineDob {
-    font-size: 12px;
+  .metaGrid {
+    grid-template-columns: 1fr;
   }
-  .jmbgLine {
-    font-size: 12px;
+  .metaValue,
+  .metaValueMono {
+    font-size: 13px;
   }
 }

@@ -15,36 +15,101 @@ export default function PatientHeader({ patient, visitDate }) {
       : null;
 
   const jmbg = p.jmbg || "";
-  const upozorenje = p.upozorenje || "";
 
-  // akcent na lijevoj ivici samo ako postoji upozorenje
-  const accent = upozorenje ? "#ef4444" : "transparent";
+  const rhSign = (() => {
+    if (p.rh_faktor === null || p.rh_faktor === undefined || p.rh_faktor === "") {
+      return "";
+    }
+    const raw = String(p.rh_faktor);
+    if (raw === "1") return "+";
+    if (raw === "0") return "-";
+    if (raw === "+" || raw === "-") return raw;
+    return "";
+  })();
+
+  const krvLabel = p.krvna_grupa ? `${p.krvna_grupa}${rhSign}` : "";
+  const dobValue = dobHuman
+    ? `${dobHuman}${years !== null ? ` (${years} god)` : ""}`
+    : "";
+
+  const infoItems = [
+    { label: "Datum rodjenja", value: dobValue, icon: "calendar" },
+    { label: "JMBG", value: jmbg, mono: true, icon: "id" },
+    { label: "Krvna grupa", value: krvLabel },
+  ].filter((item) => item.value);
 
   return (
-    <section className={styles.card} style={{ ["--accent"]: accent }}>
+    <section className={styles.card}>
       <div className={styles.top}>
-        {/* Ime + (datum rođenja i godine) u istom redu */}
-        <div className={styles.nameLine} title={imePrezime}>
-          <h2 className={styles.name}>{imePrezime}</h2>
-          {dobHuman ? (
-            <span className={styles.inlineDob}>
-              {dobHuman}
-              {years !== null ? (
-                <span className={styles.age}> ({years} god)</span>
-              ) : null}
-            </span>
-          ) : null}
-        </div>
-
-        {upozorenje ? (
-          <span className={styles.warnTag} title={upozorenje}>
-            {upozorenje}
-          </span>
-        ) : null}
+        <h2 className={styles.name} title={imePrezime}>
+          {imePrezime}
+        </h2>
       </div>
 
-      {/* JMBG ispod, diskretno */}
-      {jmbg ? <div className={styles.jmbgLine}>{jmbg}</div> : null}
+      {infoItems.length ? (
+        <div className={styles.metaGrid}>
+          {infoItems.map((item) => (
+            <div
+              key={item.label}
+              className={styles.metaItem}
+              title={`${item.label}: ${item.value}`}
+            >
+              {item.icon ? (
+                <span
+                  className={styles.metaCompact}
+                  aria-label={`${item.label}: ${item.value}`}
+                >
+                  <span className={styles.metaIcon} aria-hidden="true">
+                    {item.icon === "calendar" ? (
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path
+                          d="M7 3v3M17 3v3M4 8h16M6 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                        <path
+                          d="M4 6a2 2 0 0 1 2-2h9l5 5v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M9 12h6M9 15h6M9 9h2"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
+                  </span>
+                  <span className={item.mono ? styles.metaValueMono : styles.metaValue}>
+                    {item.value}
+                  </span>
+                </span>
+              ) : (
+                <>
+                  <span className={styles.metaLabel}>{item.label}</span>
+                  <span
+                    className={item.mono ? styles.metaValueMono : styles.metaValue}
+                  >
+                    {item.value}
+                  </span>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

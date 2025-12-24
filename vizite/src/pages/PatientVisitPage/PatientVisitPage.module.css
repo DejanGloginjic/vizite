@@ -34,7 +34,7 @@
 .tabsRoot :global(.ant-tabs-tab) {
   padding: 4px 12px;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #6b7280;
 }
@@ -81,7 +81,7 @@
   border-radius: 10px;
   padding: 8px 12px;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
   cursor: pointer;
 }
@@ -97,7 +97,7 @@
   border-radius: 10px;
   padding: 8px 12px;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   cursor: pointer;
 }
 
@@ -105,33 +105,49 @@
 .h3 {
   margin: 0; /* kontrolisaćemo margine kroz parent */
   font-weight: 800;
-  font-size: 18px;
+  font-size: 19px;
   line-height: 1.2;
 }
 
 /* red: input + "osvježavam…" */
 .dateRow {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
-/* date input – kompaktan, ali tap-friendly */
+/* date input – tap-friendly */
 .date {
-  height: 36px;
-  padding: 0 10px;
-  min-width: 130px;
-  border-radius: 999px;
+  height: 40px;
+  padding: 0 12px;
+  min-width: 180px;
+  max-width: 100%;
+  border-radius: 12px;
   border: 1px solid var(--border, #e5e7eb);
   background: var(--panel, #f9fafb);
   color: var(--fg, #111827);
-  font-size: 14px;
+  font-size: 15px;
+}
+
+@media (max-width: 640px) {
+  .dateRow {
+    width: 100%;
+  }
+
+  .date {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    height: 38px;
+    padding: 0 10px;
+    font-size: 15px;
+  }
 }
 
 /* sivi tekst "osvježavam…" */
 .dim {
   color: var(--muted, #6b7280);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* skeleton / placeholder */
@@ -140,7 +156,7 @@
   padding: 10px;
   border-radius: 10px;
   color: var(--muted, #6b7280);
-  font-size: 14px;
+  font-size: 15px;
 }
 
 /* error kartice */
@@ -150,7 +166,7 @@
   color: #7f1d1d;
   padding: 10px 12px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 /* --- Dokumenti sekcija --- */
@@ -164,27 +180,35 @@
 .docsHeaderRow {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.episodeSelectBtn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
+  height: 42px;
+  border-radius: 12px;
+  font-weight: 700;
+  padding: 0 14px;
+  font-size: 15px;
+}
+.episodeSelectText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* AntD Select za epizode */
-.episodeFilter {
-  min-width: 170px;
-}
-
-/* dotjeraj Select izgled preko global */
-.episodeFilter :global(.ant-select-selector) {
-  border-radius: 999px !important;
-  padding: 0 10px !important;
-  min-height: 32px;
-  background: #f9fafb;
-  border-color: var(--border, #e5e7eb) !important;
-}
-
-.episodeFilter :global(.ant-select-selection-item),
-.episodeFilter :global(.ant-select-selection-placeholder) {
-  font-size: 13px;
+@media (min-width: 640px) {
+  .episodeSelectBtn {
+    width: auto;
+    min-width: 220px;
+  }
 }
 
 /* lista dokumenata – grupisana po epizodi */
@@ -214,13 +238,13 @@
 }
 
 .docsGroupTitle {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #1d4ed8;
 }
 
 .docsGroupRange {
-  font-size: 11px;
+  font-size: 12px;
   color: #4b5563;
 }
 
@@ -229,10 +253,10 @@
   border-radius: 14px;
   border: 1px solid var(--border, #e5e7eb);
   background: #ffffff;
-  padding: 8px 10px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.03);
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.1s ease;
@@ -258,13 +282,13 @@
 }
 
 .docTitle {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: #0f172a;
 }
 
 .docAuthor {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: #4b5563;
   white-space: nowrap;
@@ -272,7 +296,7 @@
 
 /* metapodaci: datum kreiranja + organizaciona jedinica */
 .docMeta {
-  font-size: 11px;
+  font-size: 13px;
   color: #6b7280;
 }
 
@@ -288,11 +312,11 @@
 
   .date {
     min-width: 115px;
-    font-size: 13px;
+    font-size: 15px;
   }
 
-  .episodeFilter {
-    min-width: 0;
+  .episodeSelectBtn {
+    width: 100%;
   }
 
   .docsGroupHeader {
@@ -300,7 +324,7 @@
   }
 
   .docTitle {
-    font-size: 13px;
+    font-size: 15px;
   }
 
   .docTitleRow {
@@ -318,6 +342,92 @@
   .wrap {
     max-width: 720px;
   }
+}
+
+/* TABLET: veći fontovi i veći tap targeti */
+@media (min-width: 768px) {
+  .wrap {
+    max-width: 1080px;
+    padding: 16px;
+  }
+
+  .tabsRoot :global(.ant-tabs-tab) {
+    padding: 6px 16px;
+    font-size: 16px;
+  }
+
+  .h3 {
+    font-size: 21px;
+  }
+
+  .tasksHeaderRow {
+    gap: 12px;
+  }
+
+  .addBtn,
+  .secondaryBtn {
+    padding: 10px 16px;
+    font-size: 16px;
+    border-radius: 12px;
+  }
+
+  .dateControls {
+    gap: 8px;
+  }
+
+  .date {
+    height: 46px;
+    font-size: 16px;
+    padding: 0 14px;
+    min-width: 220px;
+  }
+
+  .episodeSelectBtn {
+    height: 48px;
+    font-size: 16px;
+    padding: 0 16px;
+  }
+
+  .docCard {
+    padding: 12px 14px;
+    gap: 6px;
+  }
+
+  .docTitle {
+    font-size: 17px;
+  }
+
+  .docAuthor {
+    font-size: 15px;
+  }
+
+  .docMeta {
+    font-size: 15px;
+  }
+
+  .docsGroupTitle {
+    font-size: 15px;
+  }
+
+  .docsGroupRange {
+    font-size: 13px;
+  }
+
+  .docViewerNavBtn,
+  .docViewerCloseBtn {
+    padding: 8px 16px;
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .docViewerDate {
+    font-size: 19px;
+  }
+
+  .docViewerCounter {
+    font-size: 17px;
+  }
+
 }
 
 /* === FULLSCREEN VIEWER ZA DOKUMENTE === */
@@ -358,9 +468,9 @@
   box-sizing: border-box;
 }
 
-/* lijevo – datum dokumenta */
+/* lijevo - datum dokumenta */
 .docViewerDate {
-  font-size: 11px;
+  font-size: 17px;
   font-weight: 500;
   color: #6b7280;
   white-space: nowrap;
@@ -381,7 +491,7 @@
   color: #b91c1c;
   border-radius: 999px;
   padding: 6px 14px; /* veće za prst */
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   min-width: 44px;
   min-height: 36px;
@@ -398,7 +508,7 @@
 
 /* "2 / 5" */
 .docViewerCounter {
-  font-size: 11px;
+  font-size: 16px;
   color: #9f1239;
 }
 
@@ -406,15 +516,72 @@
 .docViewerBody {
   flex: 1 1 auto;
   background: #000;
-  display: flex;
-  overflow: hidden;
   position: relative;
+  overflow: hidden;
+}
+
+.docViewerScroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  -webkit-overflow-scrolling: touch;
+}
+
+.docViewerStage {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0 auto;
+}
+
+.docViewerFrame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  background: #ffffff;
 }
 
 .docViewerIframe {
   border: none;
   width: 100%;
-  height: 100%; /* zauzima sve ispod headera */
+  height: 100%;
+  display: block;
+}
+
+.docViewerLoading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #f9fafb;
+  font-size: 13px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.docViewerSpinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: docViewerSpin 0.9s linear infinite;
+}
+
+.docViewerLoadingText {
+  font-weight: 600;
+}
+
+@keyframes docViewerSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .docViewerSwipeZone {
@@ -447,21 +614,30 @@
   }
 
   .docViewerHeader {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
-    align-items: flex-start;
-    row-gap: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding: 8px;
   }
 
+  .docViewerDate {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .docViewerNav {
-    justify-content: flex-start;
+    flex: 0 1 auto;
+    justify-content: flex-end;
     flex-wrap: wrap;
+    min-width: 0;
   }
 
   .docViewerNavBtn,
   .docViewerCloseBtn {
     padding: 4px 9px;
-    font-size: 11px;
+    font-size: 12px;
   }
 }

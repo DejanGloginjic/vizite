@@ -1,21 +1,23 @@
 // src/pages/PatientsPage/PatientsPage.jsx
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Button, Input, Select, message } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { Button, Input, message } from 'antd';
+import { SearchOutlined, LoadingOutlined } from '@ant-design/icons';
 
 import styles from './PatientsPage.module.css';
 
 import { useRoomsQuery } from '../../entities/room/queries';
 import { usePatientsQuery } from '../../entities/patient/queries';
-import { getPatientById, getPatientByWirstband } from '../../entities/patient/api';
+import { getPatientByWirstband } from '../../entities/patient/api';
 import { usePrefetchPatient } from '../../features/patient-prefetch/usePrefetchPatient';
 import { PatientsList } from '../../widgets/patient-list';
 import { toISODate } from '../../shared/lib/date';
+import { RoomModal } from '../../shared/ui/RoomModal/RoomModal';
 
-// helper za mapiranje pacijenta na sobu (bivši RoomFilter)
+// helper za mapiranje pacijenta na sobu (bivsi RoomFilter)
 function extractRoomId(p, roomsByName, roomsById) {
-  let raw = p?.soba_id ?? p?.sobaId ?? p?.room_id ?? p?.roomId ?? p?.soba ?? null;
+  const raw =
+    p?.soba_id ?? p?.sobaId ?? p?.room_id ?? p?.roomId ?? p?.soba ?? null;
 
   if (typeof raw === 'number') return String(raw);
   if (typeof raw === 'string') {
@@ -45,9 +47,9 @@ export default function PatientsPage() {
   const [searchId, setSearchId] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const inputRef = useRef(null);
+  const [roomModalOpen, setRoomModalOpen] = useState(false);
 
-  // ============== SIGURNI NIZOVI (sprječava crash app) ==============
-
+  // sigurni nizovi
   const roomsResp = useRoomsQuery();
   const rooms = Array.isArray(roomsResp.data) ? roomsResp.data : [];
   const roomsLoading = roomsResp.isLoading;
@@ -62,19 +64,12 @@ export default function PatientsPage() {
   const allPatientsResp = usePatientsQuery(undefined, today);
   const allPatients = Array.isArray(allPatientsResp.data) ? allPatientsResp.data : [];
 
-  // --------------------------------------------------------
-
-  const onChangeRoom = (value) => {
-    if (value) setParams({ room: value });
-    else setParams({});
-  };
-
   const prefetch = usePrefetchPatient();
   const onPrefetch = (id) => id && prefetch(id);
 
   const items = useMemo(() => patients, [patients]);
 
-  // ---------------- MAPE SOBA ----------------
+  // mape soba
   const roomsByName = useMemo(() => {
     const m = new Map();
     for (const r of rooms) {
@@ -90,7 +85,7 @@ export default function PatientsPage() {
     return m;
   }, [rooms]);
 
-  // ---------------- BROJ PACIJENATA PO SOBAMA ----------------
+  // broj pacijenata po sobama
   const counts = useMemo(() => {
     const m = new Map();
     for (const p of allPatients) {
@@ -103,14 +98,14 @@ export default function PatientsPage() {
 
   const totalPatients = allPatients.length;
 
-  // ---------------- FOKUS NA SEARCH ----------------
+  // fokus na search
   useEffect(() => {
     if (inputRef.current && typeof inputRef.current.focus === 'function') {
       inputRef.current.focus();
     }
   }, []);
 
-  // ---------------- PRETRAGA PACIJENTA ----------------
+  // pretraga pacijenta
   const handleSearchPatient = async (value) => {
     const raw = (value ?? searchId).trim();
     if (!raw) {
@@ -140,7 +135,7 @@ export default function PatientsPage() {
     }
   };
 
-  // auto-trigger kada dužina >= 14
+  // auto-trigger kada duzina >= 14
   const handleSearchChange = (e) => {
     const next = e.target.value;
     const nextTrimmed = next.trim();
@@ -158,10 +153,9 @@ export default function PatientsPage() {
         <h2 className={styles.h2}>Pacijenti</h2>
 
         <div className={styles.filters}>
-          {/* pretraga pacijenta po ID-u */}
           <Input.Search
             ref={inputRef}
-            className={styles.patientSearch}
+            className={`${styles.patientSearch} ${styles.scannerInput}`}
             placeholder="ID pacijenta"
             allowClear
             enterButton={<Button type="primary" icon={<SearchOutlined />} />}
@@ -171,30 +165,20 @@ export default function PatientsPage() {
             loading={searchLoading}
           />
 
-          {/* filter soba */}
-          <Select
-            className={styles.roomSelect}
-            placeholder="Sve sobe"
-            allowClear
-            disabled={roomsLoading}
-            loading={roomsLoading}
-            value={selectedRoom || undefined}
-            onChange={(value) => onChangeRoom(value || '')}
-            optionFilterProp="label"
-            optionLabelProp="label"
-            showSearch
+          <Button
+            className={styles.roomSelectBtn}
+            icon={roomsLoading ? <LoadingOutlined /> : null}
+            onClick={() => setRoomModalOpen(true)}
           >
-            {rooms.map((r) => {
-              const id = String(r.id);
-              const label = r.naziv ?? `Soba ${id}`;
-              const count = counts.get(id) ?? 0;
-              return (
-                <Select.Option key={id} value={id} label={label}>
-                  {`${label} (${count})`}
-                </Select.Option>
-              );
-            })}
-          </Select>
+            {selectedRoom
+              ? (() => {
+                  const r = rooms.find((x) => String(x.id) === String(selectedRoom));
+                  const label = r?.naziv ?? `Soba ${selectedRoom}`;
+                  const c = counts.get(String(selectedRoom)) ?? 0;
+                  return `${label} (${c})`;
+                })()
+              : 'Sve sobe'}
+          </Button>
         </div>
       </div>
 
@@ -207,6 +191,21 @@ export default function PatientsPage() {
           onPrefetch={onPrefetch}
         />
       )}
+
+      <RoomModal
+        open={roomModalOpen}
+        loading={roomsLoading}
+        rooms={rooms}
+        selectedId={selectedRoom}
+        totalCount={totalPatients}
+        counts={counts}
+        onSelect={(id) => {
+          if (id) setParams({ room: id });
+          else setParams({});
+          setRoomModalOpen(false);
+        }}
+        onClose={() => setRoomModalOpen(false)}
+      />
     </section>
   );
 }

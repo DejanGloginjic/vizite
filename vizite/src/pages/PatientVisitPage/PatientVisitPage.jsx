@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Tabs, Select, message } from 'antd';
+import { Tabs, Button, message } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import styles from './PatientVisitPage.module.css';
@@ -10,16 +11,16 @@ import {
   usePatientDocumentsQuery,
   usePatientEpisodesQuery, // NOVO: epizode pacijenta
 } from '../../entities/patient/queries';
-import {
-  usePatientTasksQuery,
-  useUpdateTaskMutation,
-} from '../../entities/task/queries';
+import { usePatientTasksQuery, useUpdateTaskMutation } from '../../entities/task/queries';
 import { toISODate } from '../../shared/lib/date';
 import PatientHeader from '../../widgets/PatientHeader/PatientHeader';
 import PatientTasks from '../../widgets/PatientTasks/PatientTasks';
 import { ENV } from '../../shared/config/env';
-import TaskCreateModal from '../../features/task-create/TaskCreateModal'; // ⬅️ NOVO
+import TaskCreateModal from '../../features/task-create/TaskCreateModal'; // NOVO
 import TaskImportModal from '../../features/task-import/TaskImportModal';
+import { EpisodeModal } from '../../shared/ui/EpisodeModal/EpisodeModal';
+
+const DEFAULT_DOC_SIZE = { width: 794, height: 1123 }; // A4 @ 96dpi
 
 export default function PatientVisitPage() {
   const { id } = useParams();
@@ -30,12 +31,18 @@ export default function PatientVisitPage() {
   const [episodeFilter, setEpisodeFilter] = useState(''); // '' = sve
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [episodeModalOpen, setEpisodeModalOpen] = useState(false);
 
   // === viewer state (fullscreen prikaz dokumenta) ===
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerDocs, setViewerDocs] = useState([]); // trenutna grupa dokumenata
   const [viewerIndex, setViewerIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState(null);
+  const [docScale, setDocScale] = useState(1);
+  const [docSize, setDocSize] = useState(DEFAULT_DOC_SIZE);
+  const [docLoading, setDocLoading] = useState(false);
+  const docViewerBodyRef = useRef(null);
+  const docViewerIframeRef = useRef(null);
 
   const {
     data: patient,
@@ -63,9 +70,17 @@ export default function PatientVisitPage() {
   // NOVO: sve epizode pacijenta (za dropdown)
   const { data: episodesData = [], isLoading: episodesLoading } = usePatientEpisodesQuery(id);
 
+  const setDateValue = useCallback(
+    (nextIso) => {
+      const iso = dayjs(nextIso).format('YYYY-MM-DD');
+      setSp(iso && iso !== today ? { date: iso } : {}); // danas bez query parametra
+    },
+    [setSp, today],
+  );
+
   const onChangeDate = (e) => {
     const v = e.target.value;
-    setSp(v && v !== today ? { date: v } : {}); // danas bez query parametra
+    setDateValue(v || today);
   };
 
   const handleSaveTasks = useCallback(
@@ -105,7 +120,7 @@ export default function PatientVisitPage() {
 
           if (requiresVal && !String(vrijednost || '').trim()) {
             throw new Error(
-              `Zadatak "${task.naziv || task.vrsta || ''}" zahtijeva unos vrijednosti.`
+              `Zadatak "${task.naziv || task.vrsta || ''}" zahtijeva unos vrijednosti.`,
             );
           }
 
@@ -141,7 +156,7 @@ export default function PatientVisitPage() {
         message.error(err?.message || 'Greska pri azuriranju zadataka.');
       }
     },
-    [updateTask]
+    [updateTask],
   );
 
   // === priprema dokumenata ===
@@ -179,7 +194,7 @@ export default function PatientVisitPage() {
     return map;
   }, [episodesData]);
 
-  // opcije za Select (filter po epizodi)
+  // opcije za epizode (filter po epizodi)
   const episodeOptions = useMemo(() => {
     const opts = [];
 
@@ -217,9 +232,38 @@ export default function PatientVisitPage() {
     return opts;
   }, [episodesMap, docs]);
 
+  const episodeCounts = useMemo(() => {
+    const m = new Map();
+    for (const d of docs) {
+      const key = d.id_epizode ? String(d.id_epizode) : 'NO_EPISODE';
+      m.set(key, (m.get(key) || 0) + 1);
+    }
+    return m;
+  }, [docs]);
+
+  const episodesList = useMemo(() => {
+    const list = episodeOptions.map((opt) => {
+      const key = String(opt.value);
+      const meta = episodesMap.get(Number(opt.value)) || episodesMap.get(opt.value);
+      return {
+        id: key,
+        label: meta?.label || String(opt.label),
+        range: meta?.range || '',
+      };
+    });
+    const hasNoEpisode = docs.some((d) => !d.id_epizode);
+    if (hasNoEpisode) {
+      list.push({ id: 'NO_EPISODE', label: 'Bez epizode', range: '' });
+    }
+    return list;
+  }, [episodeOptions, docs, episodesMap]);
+
   // filter dokumenata po epizodi
   const filteredDocs = useMemo(() => {
     if (!episodeFilter) return docs;
+    if (episodeFilter === 'NO_EPISODE') {
+      return docs.filter((d) => !d.id_epizode);
+    }
     return docs.filter((d) => String(d.id_epizode || '') === String(episodeFilter));
   }, [docs, episodeFilter]);
 
@@ -319,10 +363,74 @@ export default function PatientVisitPage() {
     setTouchStartX(null);
   };
 
+  const updateFitScale = useCallback(() => {
+    if (!viewerOpen) return;
+    const bodyEl = docViewerBodyRef.current;
+    if (!bodyEl) return;
+
+    const rect = bodyEl.getBoundingClientRect();
+    const baseWidth = docSize.width || DEFAULT_DOC_SIZE.width;
+    const baseHeight = docSize.height || DEFAULT_DOC_SIZE.height;
+    if (!rect.width || !rect.height || !baseWidth || !baseHeight) return;
+
+    const nextFit = Math.min(rect.width / baseWidth, rect.height / baseHeight, 1);
+    setDocScale(nextFit);
+  }, [docSize.height, docSize.width, viewerOpen]);
+
+  const handleIframeLoad = useCallback(() => {
+    const iframe = docViewerIframeRef.current;
+    if (!iframe) return;
+
+    let next = DEFAULT_DOC_SIZE;
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (doc) {
+        const docEl = doc.documentElement;
+        const body = doc.body;
+        const width = Math.max(
+          docEl?.scrollWidth || 0,
+          body?.scrollWidth || 0,
+          docEl?.clientWidth || 0,
+        );
+        const height = Math.max(
+          docEl?.scrollHeight || 0,
+          body?.scrollHeight || 0,
+          docEl?.clientHeight || 0,
+        );
+        if (width && height) {
+          next = { width, height };
+        }
+      }
+    } catch (err) {
+      // Cross-origin or non-HTML content; keep default size.
+    }
+    setDocSize(next);
+    setDocLoading(false);
+  }, []);
+
   const currentDoc =
     viewerOpen && viewerDocs.length
       ? viewerDocs[Math.min(viewerIndex, viewerDocs.length - 1)]
       : null;
+
+  useEffect(() => {
+    if (!viewerOpen) return;
+    setDocScale(1);
+    setDocSize(DEFAULT_DOC_SIZE);
+    setDocLoading(true);
+  }, [viewerIndex, viewerOpen]);
+
+  useEffect(() => {
+    if (!viewerOpen) return;
+    updateFitScale();
+  }, [docSize, updateFitScale, viewerOpen]);
+
+  useEffect(() => {
+    if (!viewerOpen) return;
+    const onResize = () => updateFitScale();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [updateFitScale, viewerOpen]);
 
   const buildDocUrl = (doc) => {
     if (!doc) return '';
@@ -331,7 +439,7 @@ export default function PatientVisitPage() {
     const formId = doc.id_forme || doc.forma_id;
     if (!docId || !epId || !formId || !id) return '';
 
-    const base = ENV.DOC_VIEWER_BASE_URL; // ⬅️ sada iz env-a
+    const base = ENV.DOC_VIEWER_BASE_URL; // sada iz env-a
 
     const params = new URLSearchParams({
       id_pacijenta: String(id),
@@ -345,6 +453,17 @@ export default function PatientVisitPage() {
     return `${base}?${params.toString()}`;
   };
 
+  const selectedEpisode = episodeFilter
+    ? episodesList.find((ep) => String(ep.id) === String(episodeFilter))
+    : null;
+  const selectedEpisodeLabel = episodeFilter
+    ? selectedEpisode?.label ||
+      (episodeFilter === 'NO_EPISODE' ? 'Bez epizode' : `Epizoda #${episodeFilter}`)
+    : '';
+  const selectedEpisodeCount = episodeFilter
+    ? episodeCounts.get(String(episodeFilter)) ?? 0
+    : docs.length;
+
   const tabItems = [
     {
       key: 'tasks',
@@ -354,7 +473,6 @@ export default function PatientVisitPage() {
           {/* Header reda: "Zadaci" + datum u istom redu */}
           <div className={styles.tasksHeaderRow}>
             <div className={styles.tasksTitleRow}>
-              <h3 className={styles.h3}>Zadaci</h3>
               <button
                 type="button"
                 className={styles.addBtn}
@@ -404,19 +522,17 @@ export default function PatientVisitPage() {
       children: (
         <div className={styles.docsSection}>
           <div className={styles.docsHeaderRow}>
-            <h3 className={styles.h3}>Dokumenti</h3>
-
-            {/* filter po epizodi – AntD Select */}
-            <Select
-              className={styles.episodeFilter}
-              size="small"
-              allowClear
-              placeholder="Sve epizode"
-              value={episodeFilter || undefined}
-              onChange={(val) => setEpisodeFilter(val || '')}
-              loading={episodesLoading}
-              options={episodeOptions}
-            />
+            <Button
+              className={styles.episodeSelectBtn}
+              icon={episodesLoading ? <LoadingOutlined /> : null}
+              onClick={() => setEpisodeModalOpen(true)}
+            >
+              <span className={styles.episodeSelectText}>
+                {episodeFilter
+                  ? `${selectedEpisodeLabel} (${selectedEpisodeCount})`
+                  : 'Sve epizode'}
+              </span>
+            </Button>
           </div>
 
           {docsLoading ? (
@@ -511,6 +627,20 @@ export default function PatientVisitPage() {
         targetDate={date}
       />
 
+      <EpisodeModal
+        open={episodeModalOpen}
+        loading={episodesLoading || docsLoading}
+        episodes={episodesList}
+        selectedId={episodeFilter}
+        totalCount={docs.length}
+        counts={episodeCounts}
+        onSelect={(id) => {
+          setEpisodeFilter(id || '');
+          setEpisodeModalOpen(false);
+        }}
+        onClose={() => setEpisodeModalOpen(false)}
+      />
+
       {/* === FULLSCREEN VIEWER ZA DOKUMENTE === */}
       {viewerOpen && currentDoc && (
         <div className={styles.docViewerOverlay}>
@@ -551,11 +681,39 @@ export default function PatientVisitPage() {
             </div>
 
             <div className={styles.docViewerBody}>
-              <iframe
-                title="Dokument pacijenta"
-                className={styles.docViewerIframe}
-                src={buildDocUrl(currentDoc)}
-              />
+              <div className={styles.docViewerScroll} ref={docViewerBodyRef}>
+                <div
+                  className={styles.docViewerStage}
+                  style={{
+                    width: `${Math.max(1, docSize.width * docScale)}px`,
+                    height: `${Math.max(1, docSize.height * docScale)}px`,
+                  }}
+                >
+                  <div
+                    className={styles.docViewerFrame}
+                    style={{
+                      width: `${Math.max(1, docSize.width)}px`,
+                      height: `${Math.max(1, docSize.height)}px`,
+                      transform: `scale(${docScale})`,
+                    }}
+                  >
+                    <iframe
+                      title="Dokument pacijenta"
+                      className={styles.docViewerIframe}
+                      src={buildDocUrl(currentDoc)}
+                      ref={docViewerIframeRef}
+                      onLoad={handleIframeLoad}
+                      onError={() => setDocLoading(false)}
+                    />
+                  </div>
+                </div>
+              </div>
+              {docLoading && (
+                <div className={styles.docViewerLoading} aria-live="polite">
+                  <div className={styles.docViewerSpinner} />
+                  <span className={styles.docViewerLoadingText}>Ucitavam dokument...</span>
+                </div>
+              )}
               <div
                 className={`${styles.docViewerSwipeZone} ${styles.docViewerSwipeZoneLeft}`}
                 onTouchStart={handleTouchStart}
